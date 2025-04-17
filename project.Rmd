@@ -1,0 +1,48 @@
+---
+title: "Project"
+author: "Lukáš Častven, Michal Kilian"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Predicting LoL game winner
+
+League of Legends (LoL) is a 5v5 multiplayer online battle arena (MOBA) game.
+Teams compete to destroy the enemy's base structure, the Nexus.
+
+Our project goal is to predict the winning team based on events occurring within
+the first 10 minutes of professional matches.
+
+## Data Source
+
+The dataset contains detailed statistics and events from professional LoL matches (2019-2024).
+It was originally published on IEEE DataPort under a CC license. However, since
+IEEE is a greedy corporation, accessing it there requires a paid subscription.
+
+We obtained the identical dataset directly from the authors' GitHub repository
+([PandaScore/PandaSkill](https://github.com/PandaScore/PandaSkill)). This source
+provides the data under the permissive MIT license.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(patchwork)
+
+metadata <- read_csv("data/game_metadata.csv")
+player_stats <- read_csv("data/game_players_stats.csv")
+events <- read_csv("data/game_events.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
