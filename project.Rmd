@@ -11,35 +11,176 @@ League of Legends (LoL) is a 5v5 multiplayer online battle arena (MOBA) game.
 Teams compete to destroy the enemy's base structure, the Nexus.
 
 Our project goal is to predict the winning team based on events occurring within
-the first 10 minutes of professional matches.
+the first `N` minutes of professional matches.
 
-## Data Source
+
+## Dataset
+
+The dataset consists of three CSV files: `game_metadata.csv`, `game_players_stats.csv`,
+and `game_events.csv`. The fields `game_id` and `player_id` link these files.
+
+### Source
 
 The dataset contains detailed statistics and events from professional LoL matches (2019-2024).
-It was originally published on IEEE DataPort under a CC license. However, since
-IEEE is a greedy corporation, accessing it there requires a paid subscription.
+It was published on
+[IEEE DataPort under a CC license](https://ieee-dataport.org/documents/league-legends-esports-player-game-data-2019-2024). 
+However, since IEEE is a greedy corporation, accessing it there requires a paid subscription.
 
 We obtained the identical dataset directly from the authors' GitHub repository
 ([PandaScore/PandaSkill](https://github.com/PandaScore/PandaSkill)). This source
 provides the data under the permissive MIT license.
 
+### `game_metadata.csv`
+
+This file contains general information about each game.
+
+*   `game_id`: Unique game identifier.
+*   `date`: Game date and time in format YYYY-MM-DD HH:MM:SS.ssssss.
+*   `match_id`: Identifier for the match (e.g., a best-of-5 series).
+*   `tournament_id`: Unique tournament identifier.
+*   `tournament_name`: Name of the tournament.
+*   `series_id`: Unique series identifier.
+*   `series_name`: Name of the series (e.g., LCK Summer 2024).
+*   `league_id`: Unique league identifier.
+*   `league_name`: Name of the league (e.g., LCK).
+*   *Note:* Games belong to matches, matches to tournaments, tournaments to series, and series to leagues.
+
+### `game_players_stats.csv`
+
+This file provides player statistics at the end of each game.
+
+*   `game_id`: Unique game identifier.
+*   `player_id`: Unique player identifier.
+*   `player_name`: Player's in-game name.
+*   `team_id`: Unique team identifier.
+*   `team_name`: Name of the player's team.
+*   `team_acronym`: Team's acronym.
+*   `role`: Player's role (e.g., Mid).
+*   `win`: Binary indicator (1 if player won, 0 otherwise).
+*   `game_length`: Duration of the game in seconds.
+*   `champion_name`: Name of the champion played.
+*   `team_kills`: Total champion kills by the player's team.
+*   `tower_kills`: Total tower kills by the player's team.
+*   `inhibitor_kills`: Total inhibitor kills by the player's team.
+*   `dragon_kills`: Total drake kills by the player's team.
+*   `herald_kills`: Total Rift Herald kills by the player's team.
+*   `baron_kills`: Total Baron Nashor kills by the player's team.
+*   `player_kills`: Player's champion kills.
+*   `player_deaths`: Player's deaths.
+*   `player_assists`: Player's assists.
+*   `total_minions_killed`: Player's minion kills (CS).
+*   `gold_earned`: Player's total gold earned.
+*   `level`: Player's final champion level.
+*   `total_damage_dealt`: Player's total damage dealt.
+*   `total_damage_dealt_to_champions`: Player's damage dealt to enemy champions.
+*   `total_damage_taken`: Player's total damage taken.
+*   `wards_placed`: Player's number of wards placed.
+*   `largest_killing_spree`: Player's largest killing spree count.
+*   `largest_multi_kill`: Player's largest multi-kill count (e.g., 2 for double kill).
+
+### `game_events.csv`
+
+This file contains specific events occurring during each game.
+
+*   `game_id`: Unique game identifier.
+*   `timestamp`: Time in seconds when the event occurred.
+*   `event_type`: Type of event (e.g., `player_kill`, `drake_kill`).
+*   `killer_id`: ID of the player who got the kill (if applicable).
+*   `killed_id`: ID of the player/unit killed (if applicable).
+*   `assisting_player_ids`: List of IDs of assisting players (for kills).
+*   `drake_type`: Type of drake killed (e.g., infernal, cloud).
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+rm(list = ls())
+
 library(tidyverse)
 library(patchwork)
 
-metadata <- read_csv("data/game_metadata.csv")
-player_stats <- read_csv("data/game_players_stats.csv")
-events <- read_csv("data/game_events.csv")
+metadata <- read_csv("data/game_metadata.csv", show_col_types = F)
+player_stats <- read_csv("data/game_players_stats.csv", show_col_types = F)
+events <- read_csv("data/game_events.csv", show_col_types = F)
+```
+
+## Representing early game state
+
+We will create features representing the relative advantage between the two teams at the
+`N` minute. This involves calculating the difference in key objectives (kills,
+drakes, heralds, towers, voidgrubs) and identifying which team secured the first
+significant event (first blood, first drake, first herald).
+
+### Steps
+
+1.  **Identify teams:** For each `game_id`, determine the two competing `team_id`s from `player_stats`.
+	Assign one as `team1_id` and the other as `team2_id`.
+2.  **Determine winner:** Create the target variable `team1_won` (1 if `team1_id` won, 0 otherwise)
+	using the `win` column from `player_stats`.
+3.  **Map players to teams:** Create a lookup to find the `team_id` for any `player_id` within a specific `game_id`.
+4.  **Filter events:** Select events from `game_events.csv` where `timestamp <= N`.
+5.  **Calculate features:** For each `game_id`, using the filtered events and player-team mapping:
+    *   Calculate the difference in kills between teams.
+    *   Calculate the difference in drake kills.
+    *   Calculate the difference in Rift Herald kills.
+    *   Calculate the difference in towers destroyed.
+    *   Calculate the difference in voidgrubs kills.
+    *   Identify which team achieved first blood.
+    *   Identify which team took the first drake.
+    *   Identify which team took the first herald.
+6.  **Combine data:** Aggregate these features by `game_id` and join them with the `team1_won` target variable.
+
+### Resulting Dataset Structure
+
+The final dataset will have one row per `game_id`. Each row represents the state
+of a game after `N` minutes, along with the final outcome. Columns will include:
+
+*   `game_id`: Unique game identifier.
+*   `kill_diff`: Numeric difference (team 1 kills - team 2 kills).
+*   `drake_diff`: Numeric difference (team 1 drakes - team 2 drakes).
+*   `herald_diff`: Numeric difference (team 1 heralds - team 2 heralds).
+*   `tower_diff`: Numeric difference (team 1 towers - team 2 towers).
+*   `grub_diff`: Numeric difference (team 1 grubs - team 2 grubs).
+*   `first_blood`: Factor indicating which team got the first kill ('team1', 'team2', 'None').
+*   `first_drake`: Factor indicating which team got the first drake ('team1', 'team2', 'None').
+*   `first_herald`: Factor indicating which team got the first herald ('team1', 'team2', 'None').
+*   `team1_won`: Factor or numeric target variable (1 if team 1 won, 0 otherwise).
+
+```{r}
+early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts) {
+	games <- player_stats_df %>%
+		group_by(game_id) %>%
+		summarise(
+			n_players = n_distinct(player_id),
+			n_distinct_teams = n_distinct(team_id),
+			team1_id = min(team_id, na.rm = TRUE),
+			team2_id = max(team_id, na.rm = TRUE),
+			# first() is used because all players on the same team have the same win status
+			team1_won = first(win[team_id == team1_id]),
+			.groups = "drop") %>%
+		# filter out those games that don't have stats for both whole teams,
+		# example game_id 13358 has only one team
+		filter(n_players == 10, n_distinct_teams == 2) %>%
+		mutate(team1_won = as.integer(team1_won)) %>%
+		select(game_id, team1_id, team2_id, team1_won)
+	
+	player_team_lookup <- player_stats_df %>%
+		filter(game_id %in% games$game_id) %>%
+		select(game_id, player_id, team_id)
+	
+	events <- events_df %>%
+		filter(game_id %in% games$game_id & timestamp <= ts)
+	
+	events
+}
+
+early_game_dataset(player_stats, metadata, events, 10 * 60)
 ```
 
 
 
-
-
-
+```{r}
+player_stats %>% filter(game_id == 0)
+```
 
 
 
