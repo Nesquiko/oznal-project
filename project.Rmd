@@ -62,7 +62,7 @@ This file provides player statistics at the end of each game.
 *   `team_kills`: Total champion kills by the player's team.
 *   `tower_kills`: Total tower kills by the player's team.
 *   `inhibitor_kills`: Total inhibitor kills by the player's team.
-*   `dragon_kills`: Total drake kills by the player's team.
+*   `dragon_kills`: Total dragon kills by the player's team.
 *   `herald_kills`: Total Rift Herald kills by the player's team.
 *   `baron_kills`: Total Baron Nashor kills by the player's team.
 *   `player_kills`: Player's champion kills.
@@ -84,11 +84,11 @@ This file contains specific events occurring during each game.
 
 *   `game_id`: Unique game identifier.
 *   `timestamp`: Time in seconds when the event occurred.
-*   `event_type`: Type of event (e.g., `player_kill`, `drake_kill`).
+*   `event_type`: Type of event (e.g., `player_kill`, `dragon_kill`).
 *   `killer_id`: ID of the player who got the kill (if applicable).
 *   `killed_id`: ID of the player/unit killed (if applicable).
 *   `assisting_player_ids`: List of IDs of assisting players (for kills).
-*   `drake_type`: Type of drake killed (e.g., infernal, cloud).
+*   `drake_type`: Type of dragon killed (e.g., infernal, cloud).
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -107,8 +107,8 @@ events <- read_csv("data/game_events.csv", show_col_types = F)
 
 We will create features representing the relative advantage between the two teams at the
 `N` minute. This involves calculating the difference in key objectives (kills,
-drakes, heralds, towers, voidgrubs) and identifying which team secured the first
-significant event (first blood, first drake, first herald).
+dragons, heralds, towers, voidgrubs) and identifying which team secured the first
+significant event (first blood, first dragon, first herald).
 
 ### Steps
 
@@ -120,12 +120,12 @@ significant event (first blood, first drake, first herald).
 4.  **Filter events:** Select events from `game_events.csv` where `timestamp <= N`.
 5.  **Calculate features:** For each `game_id`, using the filtered events and player-team mapping:
     *   Calculate the difference in kills between teams.
-    *   Calculate the difference in drake kills.
+    *   Calculate the difference in dragon kills.
     *   Calculate the difference in Rift Herald kills.
     *   Calculate the difference in towers destroyed.
     *   Calculate the difference in voidgrubs kills.
     *   Identify which team achieved first blood.
-    *   Identify which team took the first drake.
+    *   Identify which team took the first dragon.
     *   Identify which team took the first herald.
 6.  **Combine data:** Aggregate these features by `game_id` and join them with the `team1_won` target variable.
 
@@ -136,51 +136,24 @@ of a game after `N` minutes, along with the final outcome. Columns will include:
 
 *   `game_id`: Unique game identifier.
 *   `kill_diff`: Numeric difference (team 1 kills - team 2 kills).
-*   `drake_diff`: Numeric difference (team 1 drakes - team 2 drakes).
+*   `drake_diff`: Numeric difference (team 1 dragons - team 2 dragons).
 *   `herald_diff`: Numeric difference (team 1 heralds - team 2 heralds).
 *   `tower_diff`: Numeric difference (team 1 towers - team 2 towers).
 *   `grub_diff`: Numeric difference (team 1 grubs - team 2 grubs).
-*   `first_blood`: Factor indicating which team got the first kill ('team1', 'team2', 'None').
-*   `first_drake`: Factor indicating which team got the first drake ('team1', 'team2', 'None').
-*   `first_herald`: Factor indicating which team got the first herald ('team1', 'team2', 'None').
+*   `first_blood`: Factor indicating which team got the first kill ('team1', 'team2', 'none').
+*   `first_dragon`: Factor indicating which team got the first dragon ('team1', 'team2', 'none').
+*   `first_herald`: Factor indicating which team got the first herald ('team1', 'team2', 'none').
 *   `team1_won`: Factor or numeric target variable (1 if team 1 won, 0 otherwise).
 
 ```{r}
-early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts) {
-	games <- player_stats_df %>%
-		group_by(game_id) %>%
-		summarise(
-			n_players = n_distinct(player_id),
-			n_distinct_teams = n_distinct(team_id),
-			team1_id = min(team_id, na.rm = TRUE),
-			team2_id = max(team_id, na.rm = TRUE),
-			# first() is used because all players on the same team have the same win status
-			team1_won = first(win[team_id == team1_id]),
-			.groups = "drop") %>%
-		# filter out those games that don't have stats for both whole teams,
-		# example game_id 13358 has only one team
-		filter(n_players == 10, n_distinct_teams == 2) %>%
-		mutate(team1_won = as.integer(team1_won)) %>%
-		select(game_id, team1_id, team2_id, team1_won)
-	
-	player_team_lookup <- player_stats_df %>%
-		filter(game_id %in% games$game_id) %>%
-		select(game_id, player_id, team_id)
-	
-	events <- events_df %>%
-		filter(game_id %in% games$game_id & timestamp <= ts)
-	
-	events
-}
-
-early_game_dataset(player_stats, metadata, events, 10 * 60)
+source("./utils.R")
+dataset <- early_game_dataset(player_stats, metadata, events, 10 * 60)
+dataset
 ```
 
 
 
-```{r}
-player_stats %>% filter(game_id == 0)
-```
+
 
 
 
