@@ -97,11 +97,22 @@ rm(list = ls())
 
 library(tidyverse)
 library(patchwork)
+library(corrplot)
+library(scales)
 
 metadata <- read_csv("data/game_metadata.csv", show_col_types = F)
 player_stats <- read_csv("data/game_players_stats.csv", show_col_types = F)
 events <- read_csv("data/game_events.csv", show_col_types = F)
+
+color1 <- "plum"
+color2 <- "#A0DDA1"
 ```
+
+## Hypothesis
+
+We hypthetize that if a team has more kills (player, tower, dragon) in early game
+(events that happen before `N`th minute), then they are more likely to win the whole
+game.
 
 ## Representing early game state
 
@@ -146,9 +157,132 @@ of a game after `N` minutes, along with the final outcome. Columns will include:
 *   `team1_won`: Factor or numeric target variable (1 if team 1 won, 0 otherwise).
 
 ```{r}
-source("./utils.R")
-dataset <- early_game_dataset(player_stats, metadata, events, 10 * 60)
-dataset
+source("./dataset.R")
+N <- 15 * 60
+dataset <- early_game_dataset(player_stats, metadata, events, N)
+```
+
+
+## EDA
+
+### Target `team1_won`
+
+```{r}
+ggplot(dataset, aes(x = factor(team1_won))) +
+    geom_bar(aes(y = after_stat(count)), fill = c(color1, color2)) +
+    geom_text(
+        aes(y = after_stat(count), label = after_stat(count)),
+        stat = "count",
+        vjust = -0.5
+    ) +
+    scale_x_discrete(labels = c("0" = "Team 2 Wins", "1" = "Team 1 Wins")) +
+    labs(
+        title = "Distribution of game outcomes",
+        subtitle = paste("Based on", nrow(dataset), "games"),
+        x = "Outcome",
+        y = "Number of games"
+    ) +
+    theme_minimal()
+```
+The dataset appears reasonably balanced between team 1 and team 2 wins. Around
+47% to 53%.
+
+### Diffs
+
+```{r fig.width=12}
+dataset %>%
+    select(ends_with("_diff")) %>%
+    colnames() %>%
+    map(~ {
+        col_sym <- sym(.x)
+        ggplot(dataset, aes(x = !!col_sym)) +
+            geom_histogram(
+                binwidth = 1,
+                center = 0,
+                fill = color1,
+                color = "black",
+                alpha = 0.8
+            ) +
+            labs(x = .x, y = "Number of games") +
+            theme_minimal()
+    }) %>%
+    wrap_plots(ncol = 3)
+```
+
+```{r}
+numeric_data_for_corr <- dataset %>% select(ends_with("_diff"))
+cor_matrix <- cor(numeric_data_for_corr, use = "pairwise.complete.obs")
+custom_palette <- colorRampPalette(c(color1, "white", color2))(100)
+corrplot(cor_matrix,
+    method = "color", col = custom_palette, type = "upper",
+    tl.col = "black", tl.srt = 45, addCoef.col = "black", number.cex = 1,
+    diag = F, mar = c(0, 0, 1, 0)
+)
+```
+
+Distributions of `kill_diff` and `tower_diff` seem promising.
+Also the correlation matrix seems promising, no strong correlation between
+`_diff` features. 
+
+
+```{r fig.width=10}
+dataset %>%
+    select(starts_with("first_")) %>%
+    colnames() %>%
+    map(~ {
+        col_sym <- sym(.x)
+        ggplot(dataset, aes(x = !!col_sym)) +
+            geom_bar(aes(fill = !!col_sym), stat = "count", alpha = 0.8) +
+            geom_text(
+                aes(label = after_stat(count)),
+                stat = "count",
+                vjust = -0.5
+            ) +
+            scale_fill_manual(
+                values = c("team1" = color1, "team2" = color2, "none" = "grey"),
+                guide = "none"
+            ) +
+            labs(y = NULL) +
+            theme_minimal()
+    }) %>%
+    wrap_plots(ncol = 4)
+```
+
+```{r fig.width=12, fig.height=5}
+# inspired by https://rpubs.com/stephenmoore56/345708 and
+# https://stackoverflow.com/questions/48086575/ggplot2-problems-with-using-prop-and-grouping-bar-graph-by-another-categor
+dataset %>%
+    select(starts_with("first_")) %>%
+    select(!first_dragon) %>%
+    colnames() %>%
+    map(~ {
+        col_sym <- sym(.x)
+        
+        dataset %>%
+        	filter(!!col_sym != "none") %>%
+        	mutate(team1_won = factor(
+        		team1_won,
+        		levels = c(0, 1),
+        		labels = c("Team 2 Wins", "Team 1 Wins")
+        	)) %>%
+        	count(!!col_sym, team1_won, name = "n") %>%
+        	group_by(!!col_sym) %>%
+        	mutate(prop = n / sum(n)) %>%
+        	ungroup() %>%
+        	ggplot(aes(x = !!col_sym, y = prop, fill = team1_won)) +
+        	geom_col(position = position_dodge(preserve = "single")) +
+        	geom_text(
+        		aes(label = percent(prop, accuracy = .1)),
+        		position = position_dodge(width = 0.9),
+        		vjust = -0.5,
+        		size = 4) +
+        	scale_y_continuous(labels = percent_format(accuracy = .1)) +
+        	scale_fill_manual(values = c("Team 1 Wins" = color1, "Team 2 Wins" = color2)) +
+        	labs(y = "Proportion of games") +
+        	theme_minimal()
+    }) %>%
+    wrap_plots(first_filled_bar_plots, ncol = 3, guides = "collect") &
+	theme(legend.position = "bottom")
 ```
 
 
@@ -157,6 +291,5 @@ dataset
 
 
 
-
-
-
+TODO 
+explain the creation of the dataset
