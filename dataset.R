@@ -1,3 +1,5 @@
+#' Filters games that have complete data for both teams and returns
+#' the game id, team1 id, team2 id and target team1 won (0 if not, 1 if yes).
 teams_in_games <- function(player_stats_df) {
 	player_stats_df %>%
 		group_by(game_id) %>%
@@ -16,6 +18,8 @@ teams_in_games <- function(player_stats_df) {
 		select(game_id, team1_id, team2_id, team1_won)
 }
 
+#' Goes through all the events of event_type and counts them for each game and
+#' team. Also finds out if an event happened to team1 or team2.
 event_counts_by_type <- function(events, event_types, player_team_lookup, games) {
 	events %>%
 		filter(event_type %in% event_types) %>%
@@ -33,6 +37,9 @@ event_counts_by_type <- function(events, event_types, player_team_lookup, games)
 			values_fill = 0)
 }
 
+#' Calculates the differences of kills, dragon kills, rift herald kills,
+#' towers destroyed and grub kills between the two teams. If a diff is positive,
+#' then team 1 has more, if negative, team 2 has more.
 calculate_diffs <- function(games, event_counts) {
 	games %>%
 		select(game_id) %>%
@@ -47,6 +54,9 @@ calculate_diffs <- function(games, event_counts) {
 		select(game_id, kill_diff, dragon_diff, rift_herald_diff, tower_diff, grub_diff)
 }
 
+#' Finds the first event of a event type in games. There can be multiple events
+#' at the same timestamp, and if this happens then no teams is declared as having
+#' the first event.
 find_first_event <- function(event_data, lookup_data, games_data, event_type_name) {
 	event_data %>%
 		# find minimal timestamps for each game and even type
@@ -77,7 +87,20 @@ find_first_event <- function(event_data, lookup_data, games_data, event_type_nam
 }
 
 
-early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts) {
+#' From the raw data creates the early game state dataset.
+early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
+							   cache_path = "./data/processed-dataset.csv") {
+	if (file.exists(cache_path)) {
+		cached_data <- read_csv(cache_path, show_col_types = FALSE)
+		cached_data <- cached_data %>%
+		  mutate(
+		    first_blood = factor(first_blood),
+		    first_dragon = factor(first_dragon),
+		    first_herald = factor(first_herald)
+		  )
+		return(cached_data)
+	}	
+	
 	games <- teams_in_games(player_stats_df)
 	
 	player_team_lookup <- player_stats_df %>%
@@ -99,7 +122,7 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts) {
 	first_heralds <- find_first_event(events, player_team_lookup, games, "rift_herald_kill") %>%
 		rename(first_herald = first_event_team)
 	
-	games %>%
+	dataset <- games %>%
 		left_join(diffs, by = "game_id") %>%
 		left_join(first_bloods, by = "game_id") %>%
 		left_join(first_dragons, by = "game_id") %>%
@@ -108,4 +131,8 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts) {
 			first_blood = factor(replace_na(first_blood, "none")),
 			first_dragon = factor(replace_na(first_dragon, "none")),
 			first_herald = factor(replace_na(first_herald, "none")))
+	
+	write_csv(dataset, cache_path)
+	
+	dataset
 }
