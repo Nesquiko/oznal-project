@@ -50,7 +50,7 @@ calculate_diffs <- function(games, event_counts) {
         mutate(across(where(is.numeric), ~ replace_na(., 0))) %>%
         mutate(
             kill_diff = player_kill_team1 - player_kill_team2,
-            dragon_diff = dragon_kill_team1 - dragon_kill_team2,
+            dragon_diff = drake_kill_team1 - drake_kill_team2,
             rift_herald_diff = rift_herald_kill_team1 - rift_herald_kill_team2,
             tower_diff = tower_kill_team1 - tower_kill_team2,
             grub_diff = voidgrub_kill_team1 - voidgrub_kill_team2
@@ -81,6 +81,7 @@ find_first_event <- function(event_data, lookup_data, games_data, event_type_nam
             killer_id = if_else(n() == 1, first(killer_id), NA),
             .groups = "drop"
         ) %>%
+        filter(!is.na(killer_id)) %>%
         left_join(lookup_data, by = c("game_id", "killer_id" = "player_id")) %>%
         left_join(games_data %>% select(game_id, team1_id, team2_id), by = "game_id") %>%
         mutate(first_event_team = case_when(
@@ -124,17 +125,19 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
     events <- events_df %>%
         filter(game_id %in% games$game_id & timestamp <= ts)
 
-    event_types_to_count <- c("player_kill", "dragon_kill", "rift_herald_kill", "tower_kill", "voidgrub_kill")
+    event_types_to_count <- c("player_kill", "drake_kill", "rift_herald_kill", "tower_kill", "voidgrub_kill")
     event_counts <- event_counts_by_type(events, event_types_to_count, player_team_lookup, games)
-
     diffs <- calculate_diffs(games, event_counts)
 
     first_bloods <- find_first_event(events, player_team_lookup, games, "player_kill") %>%
         rename(first_blood = first_event_team)
-    first_dragons <- find_first_event(events, player_team_lookup, games, "dragon_kill") %>%
+
+    first_dragons <- find_first_event(events, player_team_lookup, games, "drake_kill") %>%
         rename(first_dragon = first_event_team)
+
     first_heralds <- find_first_event(events, player_team_lookup, games, "rift_herald_kill") %>%
         rename(first_herald = first_event_team)
+
     first_towers <- find_first_event(events, player_team_lookup, games, "tower_kill") %>%
         rename(first_tower = first_event_team)
 
@@ -150,6 +153,7 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
             first_tower = factor(replace_na(first_tower, "none")),
             first_herald = factor(replace_na(first_herald, "none"))
         )
+
 
     if (!dir.exists(cache_dir)) {
         dir.create(cache_dir, recursive = TRUE)
