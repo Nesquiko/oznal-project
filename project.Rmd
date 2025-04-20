@@ -8,9 +8,15 @@ output: html_document
 
 
 # TODO 
+- ASK if is ok that our model is accurate max 70%, we could 
+	predict game based on the whole game player stats, but we thought that
+	this would more fun and more challenging.
 - some notice that we used LLMs to style the grapsh and to brainstorm
 - explain the creation of the dataset
 	- how does the raw data look like
+	- add champions dataset to the online dataset links
+	- add champions raw dataset description
+	- add champions data to the resulting dataset description
 	- how we created the dataset, go through the dataset.R file and describe that, e.g.:
 		- where are NA
 		- how other attributes were transformed
@@ -107,7 +113,6 @@ This file contains specific events occurring during each game.
 knitr::opts_chunk$set(echo = TRUE)
 
 rm(list = ls())
-set.seed(42069) 
 
 library(tidyverse)
 library(tidymodels)
@@ -117,13 +122,14 @@ library(scales)
 library(ggmosaic)
 library(rpart)
 library(rpart.plot)
-library(ranger)
 library(caret)
-
+source("./dataset.R")
 
 metadata <- read_csv("data/game_metadata.csv", show_col_types = F)
 player_stats <- read_csv("data/game_players_stats.csv", show_col_types = F)
 events <- read_csv("data/game_events.csv", show_col_types = F)
+champs <- read_csv("data/260225_LoL_champion_data.csv", show_col_types = F) %>%
+	rename(name = `...1`) 
 
 color1 <- "plum"
 color2 <- "#A0DDA1"
@@ -187,9 +193,8 @@ of a game after `N` minutes, along with the final outcome. Columns will include:
 *   `team1_won`: Factor or numeric target variable (1 if team 1 won, 0 otherwise).
 
 ```{r}
-source("./dataset.R")
-N <- 15 * 60
-dataset <- early_game_dataset(player_stats, metadata, events, N)
+N <- 12 * 60
+dataset <- early_game_dataset(player_stats, metadata, events, champs, N)
 ```
 
 ## EDA
@@ -218,7 +223,7 @@ The dataset appears reasonably balanced between team 1 and team 2 wins. Around
 47% to 53%. The difference is caused by  team 1 being the blue side, which has
 an advantage in picking champions before the game, that we can't address.
 
-### `_diff` features
+### Event `_diff` features
 
 ```{r fig.width=10}
 dataset %>%
@@ -309,13 +314,6 @@ dataset %>%
 				height = 0.1, 
 				alpha = 0.3,
 				size = 1.5) +
-			geom_smooth(
-				formula = y ~ x,
-				method = "glm",
-				method.args = list(family = "binomial"),
-				se = FALSE,
-				color = "blue",
-				linewidth = 1) +
 			scale_color_manual(
 				values = c("0" = color1, "1" = color2),
 				labels = c("0" = "team 2 wins", "1" = "team 1 wins"),
@@ -338,6 +336,39 @@ dataset %>%
 But `_diff` features alone are not enough to predict outcome of a game. They
 have big overlaps, using them with logistic regression would produce a model
 with a lot of errors.
+
+### Team compositions diffs
+
+```{r fig.width=12}
+dataset %>%
+	select(ends_with("_champdiff")) %>%
+	colnames() %>%
+	map(~ {
+		col_sym <- sym(.x) # Convert string name to symbol
+		
+		ggplot(dataset, aes(x = factor(team1_won), y = !!col_sym, fill = factor(team1_won))) +
+			geom_boxplot(alpha = 0.8, outlier.shape = 21, outlier.size = 1.5) +
+			scale_x_discrete(labels = c("0" = "Team 2 Wins", "1" = "Team 1 Wins")) +
+			scale_fill_manual(
+				values = c("0" = color2, "1" = color1),
+				guide = "none"
+			) +
+			geom_hline(yintercept = 0, linetype = "dashed", color = "red", linewidth = 0.5) +
+			labs(
+				title = paste("Distribution of", .x, "by game outcome"),
+				x = "Game outcome",
+				y = .x
+			) +
+			theme_minimal()
+	}) %>%
+	wrap_plots(ncol = 2)
+```		
+
+These champion type diffs are useless, so we will remove them from dataset
+
+```{r}
+dataset <- dataset %>% select(!ends_with("_champdiff"))
+```
 
 ### `first_` features
 
@@ -564,7 +595,6 @@ an advantage big enough to negate that the team is behind in corresponding `_dif
 `first_blood` with respect to `kill_diff` and `first_tower` with respect to `tower_diff`
 have all 12 possible cases covered, so we think they might be useful in our model.
 
-
 ### Findings
 
 | Requirement                | EDA findings                                                                                                                                                           |
@@ -582,4 +612,47 @@ have all 12 possible cases covered, so we think they might be useful in our mode
 Based on these EDA findings, as of our first model we choose simple decision trees.
 We think our dataset isn't complex one, few integers on small ranges and few
 categorical features.
+
+## Decision trees
+
+```{r}
+data <- dataset %>% mutate(team1_won = factor(team1_won))
+
+train_indices <- createDataPartition(data$team1_won, p = 0.8, list = FALSE, times = 1)
+train_data <- data[train_indices, ]
+test_data <- data[-train_indices, ]
+
+set.seed(42069) 
+tree_control <- rpart.control(maxdepth = 10, cp = 0.001)
+simple_tree_model <- rpart(
+  team1_won ~ .,
+  data = train_data,
+  method = "class",
+  control = tree_control)
+
+predictions <- predict(simple_tree_model, newdata = test_data, type = "class")
+conf_matrix <- confusionMatrix(predictions, test_data$team1_won)
+print(conf_matrix)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

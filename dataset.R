@@ -92,11 +92,37 @@ find_first_event <- function(event_data, lookup_data, games_data, event_type_nam
         select(game_id, first_event_team)
 }
 
+champ_types <- function(games, player_stats, champs) {
+    player_stats %>%
+        filter(game_id %in% games$game_id) %>%
+        select(game_id, team_id, champion_name) %>%
+        left_join(champs, by = c("champion_name" = "name")) %>%
+        left_join(games %>% select(game_id, team1_id, team2_id), by = "game_id") %>%
+        mutate(team_label = case_when(
+            team_id == team1_id ~ "team1",
+            team_id == team2_id ~ "team2")) %>%
+        count(game_id, team_label, herotype, name = "n") %>%
+        pivot_wider(
+            names_from = c(team_label, herotype),
+            values_from = n,
+            values_fill = 0,
+            names_glue = "{team_label}_{herotype}") %>%
+		mutate(
+			fighter_champdiff = team1_Fighter - team2_Fighter,
+			mage_champdiff = team1_Mage - team2_Mage,
+			assassin_champdiff = team1_Assassin - team2_Assassin,
+			marksman_champdiff = team1_Marksman - team2_Marksman,
+			tank_champdiff = team1_Tank - team2_Tank,
+			support_champdiff = team1_Support - team2_Support) %>%
+		select(game_id, fighter_champdiff, mage_champdiff, assassin_champdiff,
+			   marksman_champdiff, tank_champdiff, support_champdiff)
+}
+
 
 #' From the raw data creates the early game state dataset. It either creates or
 #' loads a cached early game state dataset based on timestamp.
-early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
-                               cache_dir = "./data/",
+early_game_dataset <- function(player_stats_df, metadata_df, events_df,
+                               champs_df, ts, cache_dir = "./data/",
                                cache_base_name = "processed-dataset_ts") {
     cache_file_name <- paste0(cache_base_name, ts, ".csv")
     cache_path <- file.path(cache_dir, cache_file_name)
@@ -140,12 +166,15 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
     first_towers <- find_first_event(events, player_team_lookup, games, "tower_kill") %>%
         rename(first_tower = first_event_team)
 
+    champs <- champ_types(games, player_stats_df, champs_df)
+
     dataset <- games %>%
         left_join(diffs, by = "game_id") %>%
         left_join(first_bloods, by = "game_id") %>%
         left_join(first_dragons, by = "game_id") %>%
         left_join(first_heralds, by = "game_id") %>%
         left_join(first_towers, by = "game_id") %>%
+        left_join(champs, by = "game_id") %>%
         mutate(
             first_blood = factor(replace_na(first_blood, "none")),
             first_dragon = factor(replace_na(first_dragon, "none")),
