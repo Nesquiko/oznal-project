@@ -53,9 +53,8 @@ calculate_diffs <- function(games, event_counts) {
             dragon_diff = drake_kill_team1 - drake_kill_team2,
             rift_herald_diff = rift_herald_kill_team1 - rift_herald_kill_team2,
             tower_diff = tower_kill_team1 - tower_kill_team2,
-            grub_diff = voidgrub_kill_team1 - voidgrub_kill_team2
         ) %>%
-        select(game_id, kill_diff, dragon_diff, rift_herald_diff, tower_diff, grub_diff)
+        select(game_id, kill_diff, dragon_diff, rift_herald_diff, tower_diff)
 }
 
 #' Finds the first event of a event type in games. There can be multiple events
@@ -125,7 +124,7 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df, ts,
     events <- events_df %>%
         filter(game_id %in% games$game_id & timestamp <= ts)
 
-    event_types_to_count <- c("player_kill", "drake_kill", "rift_herald_kill", "tower_kill", "voidgrub_kill")
+    event_types_to_count <- c("player_kill", "drake_kill", "rift_herald_kill", "tower_kill")
     event_counts <- event_counts_by_type(events, event_types_to_count, player_team_lookup, games)
     diffs <- calculate_diffs(games, event_counts)
 
