@@ -57,9 +57,9 @@ calculate_diffs <- function(games, event_counts) {
         select(game_id, kill_diff, dragon_diff, rift_herald_diff, tower_diff)
 }
 
-#' Finds the first event of a event type in games. There can be multiple events
-#' at the same timestamp, and if this happens then no teams is declared as having
-#' the first event.
+#' Finds the first event of a event type in games and the timestamp of that event.
+#' There can be multiple events at the same timestamp, and if this happens then
+#' no teams is declared as having the first event.
 find_first_event <- function(event_data, lookup_data, games_data, event_type_name) {
     event_data %>%
         # find minimal timestamps for each game and even type
@@ -70,16 +70,15 @@ find_first_event <- function(event_data, lookup_data, games_data, event_type_nam
         left_join(
             event_data %>% filter(event_type == event_type_name) %>% select(game_id, timestamp, killer_id),
             by = c("game_id", "timestamp"),
-            relationship = "one-to-many"
-        ) %>%
+            relationship = "one-to-many") %>%
         # count events at the min ts, if there are multiple then set `killer_id` to NA
         # so that in later join these games will be filtered out
         group_by(game_id) %>%
-        summarise(
+        reframe(
             n_events_at_min = n(),
             killer_id = if_else(n() == 1, first(killer_id), NA),
-            .groups = "drop"
-        ) %>%
+            timestamp = timestamp,
+            .groups = "drop") %>%
         filter(!is.na(killer_id)) %>%
         left_join(lookup_data, by = c("game_id", "killer_id" = "player_id")) %>%
         left_join(games_data %>% select(game_id, team1_id, team2_id), by = "game_id") %>%
@@ -87,9 +86,8 @@ find_first_event <- function(event_data, lookup_data, games_data, event_type_nam
             n_events_at_min > 1 ~ "none",
             team_id == team1_id ~ "team1",
             team_id == team2_id ~ "team2",
-            TRUE ~ "none"
-        )) %>%
-        select(game_id, first_event_team)
+            TRUE ~ "none")) %>%
+		select(game_id, first_event_team, time_first_event = timestamp)
 }
 
 champ_types <- function(games, player_stats, champs) {
@@ -136,7 +134,9 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df,
                 first_herald = factor(first_herald),
                 team1_won = as.integer(team1_won)
             ) %>%
-            mutate(across(ends_with("_diff"), as.numeric))
+            mutate(across(ends_with("_diff"), as.numeric)) %>%
+            mutate(across(ends_with("_champdiff"), as.numeric)) %>%
+        	mutate(across(starts_with("time_first_"), as.numeric))
 
         return(cached_data)
     }
@@ -155,16 +155,24 @@ early_game_dataset <- function(player_stats_df, metadata_df, events_df,
     diffs <- calculate_diffs(games, event_counts)
 
     first_bloods <- find_first_event(events, player_team_lookup, games, "player_kill") %>%
-        rename(first_blood = first_event_team)
+        rename(
+        	first_blood = first_event_team,
+        	time_first_blood = time_first_event)
 
     first_dragons <- find_first_event(events, player_team_lookup, games, "drake_kill") %>%
-        rename(first_dragon = first_event_team)
+        rename(
+        	first_dragon = first_event_team,
+        	time_first_dragon = time_first_event)
 
     first_heralds <- find_first_event(events, player_team_lookup, games, "rift_herald_kill") %>%
-        rename(first_herald = first_event_team)
+        rename(
+        	first_herald = first_event_team,
+        	time_first_herald = time_first_event)
 
     first_towers <- find_first_event(events, player_team_lookup, games, "tower_kill") %>%
-        rename(first_tower = first_event_team)
+        rename(
+        	first_tower = first_event_team,
+        	time_first_tower = time_first_event)
 
     champs <- champ_types(games, player_stats_df, champs_df)
 

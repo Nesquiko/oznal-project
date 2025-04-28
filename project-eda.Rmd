@@ -1,29 +1,17 @@
 ---
-title: "Project"
+title: "EDA"
 author: "Lukáš Častven, Michal Kilian"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
-
-
 # TODO 
-- ASK if is ok that our model is accurate max 70%, we could 
-	predict game based on the whole game player stats, but we thought that
-	this would more fun and more challenging.
-- some notice that we used LLMs to style the grapsh and to brainstorm
 - explain the creation of the dataset
-	- how does the raw data look like
-	- add champions dataset to the online dataset links
-	- add champions raw dataset description
-	- add champions data to the resulting dataset description
 	- how we created the dataset, go through the dataset.R file and describe that, e.g.:
 		- where are NA
 		- how other attributes were transformed
-	- in hypothesis specify that we want to classify
 	- perform power analysis after creating dataset
 	
-
 # Predicting LoL game winner
 
 League of Legends (LoL) is a 5v5 multiplayer online battle arena (MOBA) game.
@@ -31,7 +19,6 @@ Teams compete to destroy the enemy's base structure, the Nexus.
 
 Our project goal is to predict the winning team based on events occurring within
 the first `N` minutes of professional matches.
-
 
 ## Dataset
 
@@ -120,9 +107,6 @@ library(patchwork)
 library(corrplot)
 library(scales)
 library(ggmosaic)
-library(rpart)
-library(rpart.plot)
-library(caret)
 source("./dataset.R")
 
 metadata <- read_csv("data/game_metadata.csv", show_col_types = F)
@@ -137,15 +121,16 @@ color2 <- "#A0DDA1"
 
 ## Hypothesis
 
-We hypothesize that if a team has more kills (player, tower, dragon) in early game
-(events that happen before `N`th minute), then they are more likely to win the whole
-game.
+We hypothesize that if a team has more advantages in early game
+(events that happen before `N`th minute), then they are more likely to win the
+whole game. We want to classify based on early games state if team 1 will
+win or loose.
 
 ## Representing early game state
 
 We will create features representing the relative advantage between the two teams at the
 `N` minute. This involves calculating the difference in key objectives (kills,
-dragons, heralds, towers, voidgrubs) and identifying which team secured the first
+dragons, heralds, towers) and identifying which team secured the first
 significant event (first blood, first dragon, first herald).
 
 ### Steps
@@ -182,20 +167,37 @@ The final dataset will have one row per `game_id`. Each row represents the state
 of a game after `N` minutes, along with the final outcome. Columns will include:
 
 *   `game_id`: Unique game identifier.
-*   `kill_diff`: Numeric difference (team 1 kills - team 2 kills).
-*   `drake_diff`: Numeric difference (team 1 dragons - team 2 dragons).
-*   `herald_diff`: Numeric difference (team 1 heralds - team 2 heralds).
-*   `tower_diff`: Numeric difference (team 1 towers - team 2 towers).
-*   `grub_diff`: Numeric difference (team 1 grubs - team 2 grubs).
-*   `first_blood`: Factor indicating which team got the first kill ('team1', 'team2', 'none').
-*   `first_dragon`: Factor indicating which team got the first dragon ('team1', 'team2', 'none').
-*   `first_herald`: Factor indicating which team got the first herald ('team1', 'team2', 'none').
-*   `team1_won`: Factor or numeric target variable (1 if team 1 won, 0 otherwise).
+*   `team1_id`: Unique identifier for team 1 (arbitrarily assigned as the lower ID).
+*   `team2_id`: Unique identifier for team 2 (arbitrarily assigned as the higher ID).
+*   `team1_won`: Numeric target variable (1 if team 1 won, 0 otherwise).
+*   `kill_diff`: Numeric difference (team 1 kills - team 2 kills) at `N` minutes.
+*   `dragon_diff`: Numeric difference (team 1 dragons - team 2 dragons) at `N` minutes.
+*   `rift_herald_diff`: Numeric difference (team 1 heralds - team 2 heralds) at `N` minutes.
+*   `tower_diff`: Numeric difference (team 1 towers - team 2 towers) at `N` minutes.
+*   `first_blood`: Factor indicating which team got the first kill ('team1', 'team2', 'none' if tied or no kill before `N min).
+*   `time_first_blood`: Numeric time (in seconds) when the first blood occurred (NA if none before `N` min or tied).
+*   `first_dragon`: Factor indicating which team got the first dragon ('team1', 'team2', 'none' if tied or no dragon before N min).
+*   `time_first_dragon`: Numeric time (in seconds) when the first dragon occurred (NA if none before `N` min or tied).
+*   `first_herald`: Factor indicating which team got the first herald ('team1', 'team2', 'none' if tied or no herald before `N` min).
+*   `time_first_herald`: Numeric time (in seconds) when the first herald occurred (NA if none before `N` min or tied).
+*   `first_tower`: Factor indicating which team got the first tower ('team1', 'team2', 'none' if tied or no tower before N min).
+*   `time_first_tower`: Numeric time (in seconds) when the first tower occurred (NA if none before `N` min or tied).
+*   `fighter_champdiff`: Numeric difference (team 1 fighters - team 2 fighters).
+*   `mage_champdiff`: Numeric difference (team 1 mages - team 2 mages).
+*   `assassin_champdiff`: Numeric difference (team 1 assassins - team 2 assassins).
+*   `marksman_champdiff`: Numeric difference (team 1 marksmen - team 2 marksmen).
+*   `tank_champdiff`: Numeric difference (team 1 tanks - team 2 tanks).
+*   `support_champdiff`: Numeric difference (team 1 supports - team 2 supports).
 
 ```{r}
 N <- 12 * 60
 dataset <- early_game_dataset(player_stats, metadata, events, champs, N)
 ```
+
+## Notice on LLM usage
+
+We utilized LLMs for assistance with refining plot styling and brainstorming
+visualization ideas presented in this EDA.
 
 ## EDA
 
@@ -203,7 +205,7 @@ dataset <- early_game_dataset(player_stats, metadata, events, champs, N)
 
 ```{r}
 ggplot(dataset, aes(x = factor(team1_won))) +
-    geom_bar(aes(y = after_stat(count)), fill = c(color1, color2)) +
+    geom_bar(aes(y = after_stat(count)), fill = c(color2, color1)) +
     geom_text(
         aes(y = after_stat(count), label = after_stat(count)),
         stat = "count",
@@ -245,20 +247,21 @@ dataset %>%
     wrap_plots(ncol = 2)
 ```
 
-Distributions of `kill_diff` and `tower_diff` seem promising. Just from looking
-at them, they appear like a normal distributions. `dragon_diff` suggests that
+The distribution of `kill_diff` seem promising. Just from looking
+at it, it appears like a normal distribution. `dragon_diff` suggests that
 either there are no diffs, or one team dominates in this metric. And since rift
 herald spawns later and is more difficult to kill, thus the diff is only 1 (-1),
-there aren't many kills of it in early game.
+there aren't many kills of it in early game. In many games there is no `tower_diff`.
 
 ```{r fig.width=12}
 dataset %>%
 	select(ends_with("_diff")) %>%
 	colnames() %>%
 	map(~ {
-		col_sym <- sym(.x) # Convert string name to symbol
+		col_sym <- sym(.x)
 		
-		ggplot(dataset, aes(x = factor(team1_won), y = !!col_sym, fill = factor(team1_won))) +
+		dataset %>%
+			ggplot(aes(x = factor(team1_won), y = !!col_sym, fill = factor(team1_won))) +
 			geom_boxplot(alpha = 0.8, outlier.shape = 21, outlier.size = 1.5) +
 			scale_x_discrete(labels = c("0" = "Team 2 Wins", "1" = "Team 1 Wins")) +
 			scale_fill_manual(
@@ -276,8 +279,9 @@ dataset %>%
 	wrap_plots(ncol = 2)
 ```
 
-Boxes are have the same heights for both outcomes of a game, so `_diff` features
-have homoscedasticity.
+Boxes have the same heights for both outcomes of a game, so `_diff` features
+have homoscedasticity. Only the `kill_diff` has different distributions, other
+diffs are all same for both outcomes of the game.
 
 ```{r}
 custom_palette <- colorRampPalette(c(color1, "white", color2))(100)
@@ -315,7 +319,7 @@ dataset %>%
 				alpha = 0.3,
 				size = 1.5) +
 			scale_color_manual(
-				values = c("0" = color1, "1" = color2),
+				values = c("0" = color2, "1" = color1),
 				labels = c("0" = "team 2 wins", "1" = "team 1 wins"),
 				name = "Game Outcome") +
 			scale_y_continuous(
@@ -333,20 +337,50 @@ dataset %>%
 	theme(legend.position = "bottom")
 ```
 
-But `_diff` features alone are not enough to predict outcome of a game. They
-have big overlaps, using them with logistic regression would produce a model
-with a lot of errors.
+But `_diff` features alone are not enough to predict outcome of a game. Only
+`kill_diff` shows some separation but still there is big overlap. Using them
+with logistic regression would produce a model with a lot of errors.
 
 ### Team compositions diffs
 
-```{r fig.width=12}
+Champions can put in classes like `tank`, `fighter`, `mage` and so on. If there
+is an difference in champion types, then maybe there can is some relation to
+the win rate of games.
+
+```{r fig.width=12, fig.height=8}
+dataset %>%
+    select(ends_with("_champdiff")) %>%
+    colnames() %>%
+    map(~ {
+        col_sym <- sym(.x)
+        
+        dataset %>%
+        	ggplot(aes(x = !!col_sym)) +
+            geom_histogram(
+                binwidth = 1,
+                center = 0,
+                fill = color1,
+                color = "black",
+                alpha = 0.8) +
+            labs(x = .x, y = "Number of games") +
+            theme_minimal()}) %>%
+    wrap_plots(ncol = 3) +
+    plot_annotation(title = "Distribution of champion type diffs (team 1 - team 2)")
+```
+
+Well, in all types, the most dominant difference is 0. This makes sense because
+during some LoL meta, teams tend to play the same things, so the teams have similiar
+team compositions.
+
+```{r fig.width=12, fig.height=8}
 dataset %>%
 	select(ends_with("_champdiff")) %>%
 	colnames() %>%
 	map(~ {
-		col_sym <- sym(.x) # Convert string name to symbol
+		col_sym <- sym(.x)
 		
-		ggplot(dataset, aes(x = factor(team1_won), y = !!col_sym, fill = factor(team1_won))) +
+		dataset %>%
+			ggplot(aes(x = factor(team1_won), y = !!col_sym, fill = factor(team1_won))) +
 			geom_boxplot(alpha = 0.8, outlier.shape = 21, outlier.size = 1.5) +
 			scale_x_discrete(labels = c("0" = "Team 2 Wins", "1" = "Team 1 Wins")) +
 			scale_fill_manual(
@@ -364,11 +398,10 @@ dataset %>%
 	wrap_plots(ncol = 2)
 ```		
 
-These champion type diffs are useless, so we will remove them from dataset
-
-```{r}
-dataset <- dataset %>% select(!ends_with("_champdiff"))
-```
+Distributions of champion diffs don't point to anything useful. Boxplots
+show minimal separation between winning and losing outcomes based on champion
+class differences. We won't be exploring these features as we think the analysis
+up this point proves they are not relevant.
 
 ### `first_` features
 
@@ -399,11 +432,12 @@ dataset %>%
 ```
 
 If an `first_` event occurred in the early game, then it is around 50/50 split
-between team 1 and team 2 achieving it.
+between team 1 and team 2 achieving it. `first_tower` didn't happen in
+`r percent(sum(dataset$first_tower == 'none') / nrow(dataset), accuracy = 1)` of games.
 
 #### Securing `first_` event and winning a game
 
-```{r fig.width=12, fig.height=5}
+```{r fig.width=12, fig.height=6}
 # inspired by https://rpubs.com/stephenmoore56/345708 and
 # https://stackoverflow.com/questions/48086575/ggplot2-problems-with-using-prop-and-grouping-bar-graph-by-another-categor
 dataset %>%
@@ -413,11 +447,10 @@ dataset %>%
         col_sym <- sym(.x)
         
         dataset %>%
-        	filter(!!col_sym != "none") %>%
         	mutate(team1_won = factor(
         		team1_won,
         		levels = c(0, 1),
-        		labels = c("Team 2 Wins", "Team 1 Wins")
+        		labels = c("team 2 wins", "team 1 wins")
         	)) %>%
         	count(!!col_sym, team1_won, name = "n") %>%
         	group_by(!!col_sym) %>%
@@ -431,7 +464,7 @@ dataset %>%
         		vjust = -0.5,
         		size = 4) +
         	scale_y_continuous(labels = percent_format(accuracy = .1)) +
-        	scale_fill_manual(values = c("Team 1 Wins" = color1, "Team 2 Wins" = color2)) +
+        	scale_fill_manual(values = c("team 1 wins" = color1, "team 2 wins" = color2)) +
         	labs(y = "Proportion of games", fill = "Game outcome") +
         	theme_minimal()
     }) %>%
@@ -441,10 +474,88 @@ dataset %>%
 
 If a team secured a `first_` event, it won in a majority of games. However the
 difference between securing the event and winning the game per team are not
-balanced. If a team 1 secured `first_blood` in 63.8% games it wind, but if
-if team 2 secures it, they win only in 58.2% games. Same goes for other `first_`
+balanced. If a team 1 secured `first_blood`, in 63.9% games it won, but if
+if team 2 secured it, they won only in 58.2% games. Same goes for other `first_`
 features. It has to do with the fact that team 1 is on the blue side, and
-has an advantage in picking champions before the game that we can't address.
+has an advantage in picking champions before the game that we can't address. The
+`first_tower` has the highest value, if a team 1 secured it they won in 73.4%
+games and team 2 in 69.3% of games. But `first_tower` happened only in
+`r percent(1 - sum(dataset$first_tower == 'none') / nrow(dataset), accuracy = 1)`
+of games.
+
+#### Timings of `first_` features
+
+```{r fig.width=10}
+dataset %>%
+	select(starts_with("time_first_")) %>%
+	colnames() %>%
+	map(~ {
+        col_sym <- sym(.x)
+        
+        dataset %>%
+        	filter(!is.na(!!col_sym)) %>%
+        	select(!!col_sym) %>%
+        	ggplot(aes(x = !!col_sym / 60)) +
+        	geom_histogram(binwidth = 1, fill = color1, color = "black", alpha = 0.8) +
+        	labs(
+        		title = paste("Distribution of", .x),
+        		x = "Time (minutes)",
+        		y = "Number of games") +
+        	theme_minimal()
+	}) %>%
+    wrap_plots(ncol = 2)
+```
+
+These graphs only reflect known timings of the game, which is a good sanity check.
+
+```{r fig.width=12, fig.height=10}
+first_to_times <- list(
+	first_blood = "time_first_blood",
+	first_dragon = "time_first_dragon",
+	first_herald = "time_first_herald",
+	first_tower = "time_first_tower")
+
+first_to_times %>%
+	imap(~ {
+		first_col_sym <- sym(.y)
+		time_col_sym <- sym(.x)
+		
+		dataset %>%
+			filter(!!first_col_sym != "none") %>%
+			mutate(
+				time_bin = cut(
+					!!time_col_sym,
+					breaks = seq(0, N, by = 60),
+					include.lowest = TRUE,
+					right = FALSE),
+				first_team_won = case_when(
+					!!first_col_sym == "team1" & team1_won == 1 ~ TRUE,
+					!!first_col_sym == "team2" & team1_won == 0 ~ TRUE,
+					TRUE ~ FALSE)) %>%
+			group_by(time_bin) %>%
+			summarise(
+				n_games = n(),
+				win_rate = mean(first_team_won, na.rm = TRUE)) %>%
+			filter(!is.na(time_bin)) %>%
+			ggplot(aes(x = time_bin, y = win_rate)) +
+			geom_col(fill = color1, alpha = 0.8) +
+			geom_text(aes(label = percent(win_rate, accuracy = 0.1)), vjust = -0.5) +
+			scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+			labs(
+				title = paste("Win rate for team securing", .y),
+				x = paste("Time bin when", .y, "occured"),
+			) +
+			theme_minimal()
+	}) %>%
+    wrap_plots(ncol = 1)
+```
+
+Timings of the `first_` events doesn't tell us anything new, that only when a
+team secures some first event they tend to have above average win rate. For the
+most counted player kill event, it doesn't matter if `first_blood` happens
+at the start of at the end of early game, securing team still has same win rate.
+The `first_tower` can be relied on, since it happens in less than 20% of games.
+
 
 #### Relationship between the `first_` features
 
@@ -462,6 +573,7 @@ dataset %>%
 		
 		dataset %>%
 			filter(!!sym1 != "none", !!sym2 != "none") %>%
+			# removes none from axis
 			mutate(
 				!!var1 := factor(!!sym1, levels = c("team1", "team2")),
 				!!var2 := factor(!!sym2, levels = c("team1", "team2"))) %>%
@@ -474,10 +586,7 @@ dataset %>%
 			scale_fill_manual(
 				values = c("team1" = color1, "team2" = color2),
 				guide = "none") +
-			labs(
-				title = paste(var1, "vs", var2),
-				x = "",
-				y = "") +
+			labs(title = paste(var1, "and", var2)) +
 			theme_minimal() +
 			theme(
 				plot.title = element_text(size = 10),
@@ -489,8 +598,8 @@ dataset %>%
 
 These plots show the relationships between the 4 `first_` features. If a team
 achieved event number 1, then in what portion of games did they achieve the
-event number 2 (event number 1 vs event number 2, e.g. `first_blood` vs `first_herald`).
-Only the `first_herald` vs `first_tower` have significant relationship, that is
+event number 2 (event number 1 and event number 2, e.g. `first_blood` and `first_herald`).
+Only the `first_herald` and `first_tower` have significant relationship, that is
 because herald's purpose is to get the first tower of the game.
 
 ### Relationships between `first_`s and `_diff`s
@@ -531,8 +640,11 @@ direct_rels  %>%
 	}) %>%
 	wrap_plots(ncol = 2)
 ```
-From these graphs we can see that if a team secured `first_` event, then in it
-was leading at the end of the early game in a `_diff` of that event.
+
+From these graphs we can see that if a team secured `first_` event, then it
+was leading at the end of the early game in a `_diff` of that event. But all
+except `kill_diff` have small ranges, only the `kill_diff` has bigger value range,
+but there is big overlap between distributions of it.
 
 #### Influence of `first_` on win rate with respect to `_diff`
 
@@ -558,7 +670,6 @@ direct_rels %>%
 				!!diff_col_sym < 0 ~ "team2 lead",
 				TRUE ~ "diff zero"
 			)) %>%
-			filter(!!first_col_sym != "none") %>%
 			mutate(team1_won = factor(
 				team1_won,
 				levels = c(0, 1),
@@ -592,67 +703,37 @@ direct_rels %>%
 
 All of the pairs show that achieving a `first_` event doesn't provide
 an advantage big enough to negate that the team is behind in corresponding `_diff`.
-`first_blood` with respect to `kill_diff` and `first_tower` with respect to `tower_diff`
-have all 12 possible cases covered, so we think they might be useful in our model.
+
+If team 1 has kill lead at the end of an early game, then achieving `first_blood`
+only gave them around 5% more win rate, same goes for team 2. Dragon and herald
+graphs don't have all the cases covered, since these are low range values, there
+aren't as many drake and herald kills in the early game as compared to kills.
+The tower diff and `first_tower` have some of the strongest win rate indicators,
+but tower kills are rare, only happening in less than 20% of games.
+
 
 ### Findings
 
-| Requirement                | EDA findings                                                                                                                                                           |
-| :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Response variable**      | `team1_won` is binary (0 or 1).                                                                                                                                        |
-| **Predictor independence** | Each row is a unique game, which are independent events.                                                                                                               |
-| **Collinearity**           | `_diff` features show low correlation among themselves. `first_*` features low (except herald/tower). Some correlation expected between related `_diff` and `first_*`. |
-| **Normality**              | `kill_diff` and `tower_diff` distributions resemble normal distributions. `first_*` features are categorical.                                                          |
-| **Feature scaling**        | Ranges of `_diff` features are relatively small (mostly within [-15, 15]). Testing needed to see if scaling improves model performance.                                |
-| **Homoscedasticity**       | `_diff` features generally show similar variance across `team1_won` groups (homoscedasticity mostly holds for numeric predictors).                                     |
-| **Outliers**               | EDA didn't reveal extreme outliers in `_diff` features.                                                                                                                |
-| **Sample size**            | Dataset has `r I(nrow(dataset))` games, which is a substantial sample size.                                                                                            |
-| **Linear relationship**    | `_diff` features show some monotonic trends with the outcome (log-odds).                                                                                               |
+| Requirement                 | EDA findings                                                                                                                                                                                                                                                                                                                          |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Response variable**       | `team1_won` is binary (0 or 1), suitable for classification. Reasonably balanced (~53% vs 47%).                                                                                                                                                                                                                                       |
+| **Predictor independence**  | Each row represents a unique game; assuming games are independent events, this requirement holds.                                                                                                                                                                                                                                     |
+| **`_diff` Features**        | Numeric differences in objectives. `kill_diff` shows the most separation by outcome. Others have smaller ranges. Generally symmetric distributions, low internal correlation.                                                                                                                                                         |
+| **`first_*` Features**      | Categorical (team1/team2/none). Securing any `first_` objective correlates with >50% win rate. `first_tower` is rare (`r percent(1 - sum(dataset$first_tower == 'none') / nrow(dataset), accuracy = 1)` occurrence). Low internal correlation except `first_herald`/`first_tower`.                                            |
+| **`time_first_*` Features** | Numeric timestamps. Distributions reflect known game timings (e.g., dragon post-5min). Binned win rate analysis shows timing doesn't significantly alter win probability compared to _if_ the objective was secured. Low independent predictive value observed.                                                             |
+| **`_champdiff` Features**   | Numeric differences in champion classes. Distributions centered at 0, small range. Show minimal separation by outcome individually. Low-to-moderate internal correlations.                                                                                                                                                            |
+| **Collinearity**            | Low correlation observed between `_diff` features. Low correlation between most `first_*` features (except herald/tower). `_champdiff` features show some expected negative correlations but no high multicollinearity detected. Some correlation exists between related `_diff` and `first_*` (e.g., `kill_diff` and `first_blood`). |
+| **Normality**               | `_diff` features are roughly symmetric, `kill_diff` somewhat resembles normal. `first_*` are categorical. `_champdiff` are discrete, centered at 0. Not strictly required for tree-based models.                                                                                                                                      |
+| **Feature scaling**         | Ranges of `_diff` and `_champdiff` features are relatively small. Scaling is not required for decision trees but might be for other models.                                                                                                                                                                                           |
+| **Homoscedasticity**        | `_diff` and `_champdiff` features generally show similar variance across `team1_won` groups (homoscedasticity mostly holds for numeric predictors). Not a strict requirement for decision trees.                                                                                                                                      |
+| **Outliers**                | EDA didn't reveal extreme, influential outliers in numeric features that would require special handling for decision trees.                                                                                                                                                                                                           |
+| **Sample size**             | Dataset has `r I(nrow(dataset))` games, which is a substantial sample size, providing good statistical power.                                                                                                                                                                                                                         |
+| **Linear relationship**     | `_diff` features show some trends with the outcome. `first_*` features show clear steps in win probability. `_champdiff` and `time_first_*` features show weaker individual relationships with the outcome.                                                  |
 
-Based on these EDA findings, as of our first model we choose simple decision trees.
-We think our dataset isn't complex one, few integers on small ranges and few
-categorical features.
-
-## Decision trees
-
-```{r}
-data <- dataset %>% mutate(team1_won = factor(team1_won))
-
-train_indices <- createDataPartition(data$team1_won, p = 0.8, list = FALSE, times = 1)
-train_data <- data[train_indices, ]
-test_data <- data[-train_indices, ]
-
-set.seed(42069) 
-tree_control <- rpart.control(maxdepth = 10, cp = 0.001)
-simple_tree_model <- rpart(
-  team1_won ~ .,
-  data = train_data,
-  method = "class",
-  control = tree_control)
-
-predictions <- predict(simple_tree_model, newdata = test_data, type = "class")
-conf_matrix <- confusionMatrix(predictions, test_data$team1_won)
-print(conf_matrix)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Based on these EDA findings, as our first model, we choose simple decision trees.
+This model choice is supported by the EDA which identified some non-linear relationships
+(e.g., the threshold effect of securing `first_` objectives) and mixed data types
+(numeric `_diff`, `_champdiff`, `time_first_*`; categorical `first_*`). While features
+like `time_first_*` and `_champdiff` showed limited individual predictive power,
+tree based methods can potentially capture any complex interactions if present
+and inherently perform feature selection.
