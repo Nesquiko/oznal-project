@@ -5,13 +5,6 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-# TODO 
-- explain the creation of the dataset
-	- how we created the dataset, go through the dataset.R file and describe that, e.g.:
-		- where are NA
-		- how other attributes were transformed
-	- perform power analysis after creating dataset
-	
 # Predicting LoL game winner
 
 League of Legends (LoL) is a 5v5 multiplayer online battle arena (MOBA) game.
@@ -23,7 +16,9 @@ the first `N` minutes of professional matches.
 ## Dataset
 
 The dataset consists of three CSV files: `game_metadata.csv`, `game_players_stats.csv`,
-and `game_events.csv`. The fields `game_id` and `player_id` link these files.
+and `game_events.csv`. The fields `game_id` and `player_id` link these files. Additionally
+we found dataset `260225_LoL_champion_data.csv` containing metadata about champions,
+which can be linked by the champion name.
 
 ### Source
 
@@ -35,6 +30,12 @@ However, since IEEE is a greedy corporation, accessing it there requires a paid 
 We obtained the identical dataset directly from the authors' GitHub repository
 ([PandaScore/PandaSkill](https://github.com/PandaScore/PandaSkill)). This source
 provides the data under the permissive MIT license.
+
+The dataset containing metadata about champions up to February 2025, can be
+found on Kaggle under name
+[25.S1.4 League of Legends Champion Data (2025)](https://www.kaggle.com/datasets/laurenainsleyhaines/25-s1-4-league-of-legends-champion-data-2025/data).
+The original dataset didn't include champion classifications like 'Fighter', 'Mage,
+and we think it might help.
 
 ### `game_metadata.csv`
 
@@ -96,6 +97,14 @@ This file contains specific events occurring during each game.
 *   `assisting_player_ids`: List of IDs of assisting players (for kills).
 *   `drake_type`: Type of dragon killed (e.g., infernal, cloud).
 
+### `260225_LoL_champion_data.csv`
+
+This file contains metadata about champions up to February 2025, we only want
+the name and it's type.
+
+*	`first column`: Name of the champion.
+*	`herotype`: What type is the champion.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -123,7 +132,7 @@ color2 <- "#A0DDA1"
 
 We hypothesize that if a team has more advantages in early game
 (events that happen before `N`th minute), then they are more likely to win the
-whole game. We want to classify based on early games state if team 1 will
+whole game. We want to classify, based on early games state, if team 1 will
 win or loose.
 
 ## Representing early game state
@@ -131,35 +140,26 @@ win or loose.
 We will create features representing the relative advantage between the two teams at the
 `N` minute. This involves calculating the difference in key objectives (kills,
 dragons, heralds, towers) and identifying which team secured the first
-significant event (first blood, first dragon, first herald).
+significant event (first blood, first dragon, first herald) with timestamps of
+these events. Also We will calculate differences in champion types for each team.
 
 ### Steps
 
-1.  **Identify teams:** For each `game_id`, determine the two competing `team_id`s from `player_stats`.
-	Assign one as `team1_id` and the other as `team2_id`.
-2.  **Determine winner:** Create the target variable `team1_won` (1 if `team1_id` won, 0 otherwise)
-	using the `win` column from `player_stats`.
-3.  **Map players to teams:** Create a lookup to find the `team_id` for any `player_id` within a specific `game_id`.
-4.  **Filter events by timestamp:** Select events from `game_events.csv` where `timestamp <= N`.
-5.  **Filter events by type:** Some events are new or can't happen in early game:
-	* Selected events: `player_kill`, `tower_kill`, `drake_kill`, `rift_herald_kill`
-	* Non selected:
-		*  `baron_nashor_kill`: baron spawns at 20th minute
-		*  `inhibitor_kill`: inhibitors are destroyed in late game
-		*  `suicide`: doesn't occur
-		*  `other`: don't what they are
-		*  `resurrection`: mechanic that is new in the game, doesn't occur
-		*  `voidgrub_kill`: introduced recently, doesn't occur in older games
-5.  **Calculate features:** For each `game_id`, using the filtered events and player-team mapping:
-    *   Calculate the difference in kills between teams.
-    *   Calculate the difference in dragon kills.
-    *   Calculate the difference in Rift Herald kills.
-    *   Calculate the difference in towers destroyed.
-    *   Calculate the difference in voidgrubs kills.
-    *   Identify which team achieved first blood.
-    *   Identify which team took the first dragon.
-    *   Identify which team took the first herald.
-6.  **Combine data:** Aggregate these features by `game_id` and join them with the `team1_won` target variable.
+1. Filter raw player statistics to select games with complete data (10 players, 2 distinct teams). 
+2. Identify `team1_id` (numerically lower ID) and `team2_id` (numerically higher ID) for each valid game.
+3. Create the target variable `team1_won` (1 if team 1 won, 0 otherwise) based on player win status.
+4. Build a lookup table mapping `player_id` to `team_id` within each game.
+5. Filter raw game events to include only those occurring before the specified cutoff time.
+6. Select relevant event types: `player_kill`, `drake_kill`, `rift_herald_kill`, `tower_kill`.
+7. Count the occurrences of these selected event types for team1 and team2 in each game, filling missing counts with 0.
+8. Calculate difference features (`_diff`) by subtracting team 2's event counts from team 1's counts (e.g., `kill_diff = player_kill_team1 - player_kill_team2`). Replace potential NA values with 0.
+9. Identify the first occurrence for kills (blood), dragons, heralds, and towers before the cutoff time.
+10. Determine which team (`team1`, `team2`, or `none`) secured each first event. Assign `none` if no event occurred or if events were simultaneous (tied timestamp). Record the timestamp (`time_first_*`) for each first event.
+11. Join player stats with champion role/type data.
+12. Count the number of champions of each type (Fighter, Mage, etc.) for team1 and team2 in each game, filling missing counts with 0.
+13. Calculate champion type difference features (`_champdiff`) by subtracting team 2's champion type counts from team 1's counts.
+14. Combine `game_id`, team IDs, `team1_won`, all `_diff` features, all `first_` features, all `time_first_*` features, and all `_champdiff` features into the final dataset structure.
+15. Convert `first_` features (e.g., `first_blood`) to factors, replacing any NA values with the level `none`.
 
 ### Resulting dataset structure
 
@@ -193,6 +193,16 @@ of a game after `N` minutes, along with the final outcome. Columns will include:
 N <- 12 * 60
 dataset <- early_game_dataset(player_stats, metadata, events, champs, N)
 ```
+
+This gives us a dataset containing `r nrow(dataset)` early game states.
+With that many matches, we're confident we have large enough dataset. So, we
+decided to skip doing a formal power analysis because the sheer amount of data
+should be more than enough.
+
+The choice of `N = 12 minutes` is arbitrary, just from our experience of playing
+LoL. The definition of "early game" is: The game phase where players focus on
+their lanes, and it ends when the first turret in any lane is destroyed. [source](https://gameboost.com/definitions/league-of-legends/early-game)
+As can be seen later in EDA, 10 to 12 minutes have the most first towers destroyed.
 
 ## Notice on LLM usage
 
@@ -398,7 +408,7 @@ dataset %>%
 	wrap_plots(ncol = 2)
 ```		
 
-Distributions of champion diffs don't point to anything useful. Boxplots
+Distributions of champion diffs don't suggest anything useful. Boxplots
 show minimal separation between winning and losing outcomes based on champion
 class differences. We won't be exploring these features as we think the analysis
 up this point proves they are not relevant.
