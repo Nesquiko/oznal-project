@@ -1,0 +1,308 @@
+:root {
+  --lol-gold: #C9A967;
+  --lol-teal: #00929F;
+  --lol-dark-blue: #00324E;
+  --lol-text-light: #e4d5b7;
+  --lol-text-dark: var(--lol-dark-blue);
+
+  --border-radius-main: 15px;
+  --border-radius-input: 20px;
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  background-image: url(lol-background.jpg);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--lol-text-light);
+  padding-top: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-box {
+  background-color: rgba(0, 50, 78, 0.9);
+  color: var(--lol-gold);
+  padding: 10px 16px;
+  border-radius: var(--border-radius-main);
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.3em;
+  border: 1px solid var(--lol-gold);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+}
+
+.header-logo {
+  display: flex;
+  justify-content: center;
+}
+
+.slider-container {
+  text-align: center;
+  background-color: rgba(0, 50, 78, 0.9);
+  padding: 20px 30px 10px 30px;
+  border-radius: var(--border-radius-main);
+  margin-top: 15px;
+  margin-bottom: 15px;
+  border: 1px solid var(--lol-gold);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.irs--shiny .irs-bar {
+  background-color: var(--lol-gold);
+  border-color: var(--lol-gold);
+}
+
+.irs--shiny .irs-single {
+  background-color: var(--lol-gold);
+}
+
+.irs--shiny .irs-handle {
+  background-color: var(--lol-gold);
+  border-color: var(--lol-gold);
+}
+
+.irs--shiny .irs-line {
+  background-color: rgba(0, 50, 78, 0.9);
+}
+
+.irs--shiny .irs-grid-text {
+  color: var(--lol-text-light);
+}
+
+.irs--shiny .irs-grid-pol {
+  background-color: var(--lol-gold);
+}
+
+.radio-inline-group input[type='radio'] {
+  display: none;
+}
+
+.radio-inline-group label {
+  background-color: rgba(0, 50, 78, 0.9);
+  color: var(--lol-text-light);
+  border: 1px solid var(--lol-gold);
+  border-radius: var(--border-radius-input);
+  padding: 6px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-weight: normal;
+  margin-bottom: 0 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: inline-block;
+}
+
+.radio-inline-group input[type='radio']:checked + label {
+  background-color: var(--lol-gold);
+  color: var(--lol-text-dark);
+  border-color: var(--lol-gold);
+  font-weight: bold;
+  box-shadow: none;
+}
+
+.radio-inline-group label:hover {
+  border-color: var(--lol-text-light);
+  filter: brightness(1.1);
+}
+
+.team-panel {
+  background-color: rgba(0, 50, 78, 0.9);
+  padding: 20px;
+  border-radius: var(--border-radius-main);
+  border: 1px solid var(--lol-gold);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin-bottom: 0;
+}
+
+.team-panel h4 {
+  color: var(--lol-gold);
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+}
+
+.team-panel .form-group input[type='number'] {
+  background-color: var(--lol-dark-blue);
+  border: 1px solid var(--lol-gold);
+  border-radius: var(--border-radius-input);
+  color: var(--lol-text-light);
+  padding: 8px 15px;
+  width: 100%;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+#predict_button_container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin-top: 25px;
+  margin-bottom: 25px;
+}
+
+#predict_button {
+  background-color: var(--lol-gold);
+  color: var(--lol-text-dark);
+  border: 1px solid var(--lol-dark-blue);
+  border-radius: 25px;
+  width: 50%;
+  height: 50px;
+  font-size: 1.2em;
+  font-weight: bold;
+  text-transform: uppercase;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#predict_button:hover {
+  background-color: var(--lol-dark-blue);
+  border-color: var(--lol-gold);
+  color: var(--lol-text-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
+}
+
+#predict_button:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#prediction_display {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: rgba(0, 50, 78, 0.9);
+  border: 1px solid var(--lol-gold);
+  border-radius: var(--border-radius-main);
+  color: var(--lol-text-light);
+  font-size: 1.5em;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#reset_button {
+  margin-top: 20px;
+  background-color: var(--lol-dark-blue);
+  color: var(--lol-gold);
+  border: 1px solid var(--lol-gold);
+  padding: 10px 20px;
+  border-radius: var(--border-radius-input);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+#reset_button:hover {
+  background-color: var(--lol-gold);
+  color: var(--lol-dark-blue);
+}
+
+.custom-radio-container {
+  background-color: var(--lol-dark-blue);
+  padding: 30px;
+  border-radius: 15px;
+  border: 1px solid var(--lol-gold);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  max-width: 800px;
+  width: 100%;
+}
+
+.custom-radio-group .shiny-input-radiogroup {
+  margin-bottom: 20px;
+}
+
+.custom-radio-group .control-label {
+   display: none;
+}
+
+.custom-radio-title {
+  color: var(--lol-gold);
+  text-align: center;
+  font-size: 1.4em;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.custom-radio-group .shiny-options-group {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.custom-radio-group input[type='radio'] {
+  display: none;
+}
+
+.custom-radio-group .radio label {
+  padding: 10px;
+  margin: 0;
+}
+
+.custom-radio-group label {
+  width: 90px;
+}
+
+.custom-radio-group .radio label {
+  display: inline-block;
+  padding: 10px 25px;
+  border: 1.5px solid var(--lol-gold);
+  border-radius: 25px;
+  color: var(--lol-gold);
+  background-color: var(--lol-dark-blue);
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-size: 0.95em;
+  min-width: 80px;
+  text-align: center;
+}
+
+.custom-radio-group input[type='radio']:checked + span {
+  padding: 10px;
+  background-color: var(--lol-gold);
+  color: var(--lol-dark-blue);
+  font-weight: bold;
+  border-radius: 15px;
+}
+
+.custom-radio-group input[type='radio']:not(:checked) + span:hover {
+  padding: 10px;
+  border: 1px solid var(--lol-gold);
+  font-weight: bold;
+  border-radius: 15px;
+}
+
+.output-display {
+  color: var(--lol-gold);
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  font-family: monospace;
+}
+
+.prediction-headline {
+  text-align: center;
+  width: 100%;
+}
+
+.prediction-text {
+  width: 100%;
+}
