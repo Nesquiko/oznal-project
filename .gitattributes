@@ -1,3 +1,4 @@
 data/game_events.csv filter=lfs diff=lfs merge=lfs -text
 data/game_metadata.csv filter=lfs diff=lfs merge=lfs -text
 data/game_players_stats.csv filter=lfs diff=lfs merge=lfs -text
+models/adaboost_tuned.rds filter=lfs diff=lfs merge=lfs -text
