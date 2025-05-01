@@ -49,7 +49,7 @@ decision_tree <- function(formula, cp = 0.01) {
 	)
 	
 	predictions <- predict(tree_model, newdata = test_data, type = "class")
-	conf_matrix <- confusionMatrix(data = predictions, reference = test_data$team1_won)
+	conf_matrix <- confusionMatrix(data = predictions, reference = test_data$team1_won, positive = "1")
 	return (list(model = tree_model, conf_matrix = conf_matrix))
 }
 
@@ -72,14 +72,125 @@ formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
 
 all_tree <- decision_tree(formula)
 plot_decision_tree(all_tree$model)
-all_tree$conf_matrix$overall['Accuracy']
 all_tree$conf_matrix
 ```
 
-With the default settings it chose `kill_diff` and `dragon_diff`, which has
-accuracy `r all_tree$conf_matrix$overall['Accuracy']`. Next we will try to tune
-the `cp` parameter, which sets threshold for how much a tree split should improve
-the model (default was 0.01).
+This model is good when team 1 wins (sensitivity), it correctly identifies 75%
+games where team 1 won. But the model isn't good at identifying when team 1 looses,
+only 57.7% of games where team 1 lost were predicted as such.
+
+```{r}
+predictions <- tibble(
+  game_id = test_data$game_id,
+  actual = test_data$team1_won,
+  predicted = predict(all_tree$model, newdata = test_data, type = "class")) %>%
+  left_join(test_data, by = "game_id")
+
+
+# False Positives (predicted=1, actual=0)
+fp_games <- predictions %>% filter(predicted == "1" & actual == "0")
+# True Negatives (predicted=0, actual=0) - Why weren't FP games like these?
+tn_games <- predictions %>% filter(predicted == "0" & actual == "0")
+# True Positives (predicted=1, actual=1) - What made FP games look like these?
+tp_games <- predictions %>% filter(predicted == "1" & actual == "1")
+fn_games <- predictions %>% filter(predicted == "0" & actual == "1")
+```
+
+
+```{r fig.width=12}
+
+predictions_boxplots <- function (fp, tn, tp, fn, col) {
+	col_sym <- sym(col)
+	
+	ggplot() +
+	  geom_boxplot(data = fp, aes(x = "FP", y = !!col_sym), fill = "orange") +
+	  geom_boxplot(data = tn, aes(x = "TN", y = !!col_sym), fill = "lightblue") +
+	  geom_boxplot(data = tp, aes(x = "TP", y = !!col_sym), fill = "lightgreen") +
+	  geom_boxplot(data = fn, aes(x = "FN", y = !!col_sym), fill = "violet") +
+	  labs(title = paste(col, "distribution by prediction class"),
+	       x = "Outcome class",
+	       y = paste(col, "(team1 - team2)")) +
+	  theme_minimal()
+}
+
+predictions_boxplots(fp_games, tn_games, tp_games, fn_games, "kill_diff") +
+	predictions_boxplots(fp_games, tn_games, tp_games, fn_games, "tower_diff") +
+	predictions_boxplots(fp_games, tn_games, tp_games, fn_games, "dragon_diff") +
+	predictions_boxplots(fp_games, tn_games, tp_games, fn_games, "rift_herald_diff") +
+	plot_layout(ncol = 2)
+```
+
+In two predictors used in the decision tree, `kill_diff` and `dragon_diff`, the
+FP prediction class has distribution wide enough to overlap with TP. Other two
+diffs have similiar distributions. And distributions of FN have overlap with TN,
+which makes the tree classify them as team 1 lost, even though it won.
+
+```{r fig.width=12}
+predictions_densities <- function (fp, tn, tp, fn, col) {
+	col_sym <- sym(col)
+	
+	ggplot() +
+		geom_density(data = fp, aes(x = !!col_sym, color = "FP"), alpha = 0.5) +
+		geom_density(data = tn, aes(x = !!col_sym, color = "TN"), alpha = 0.5) +
+		geom_density(data = tp, aes(x = !!col_sym, color = "TP"), alpha=0.5) +
+		geom_density(data = fn, aes(x = !!col_sym, color = "FN"), alpha=0.5) +
+		scale_color_manual(name = "prediction class", values = c("FP" = "orange", "TN" = "blue", "TP" = "green", "FN" = "violet")) +
+		labs(title = paste(col, "density by prediction class"), x = NULL) +
+		theme_minimal()
+}
+
+
+predictions_densities(fp_games, tn_games, tp_games, fn_games, "kill_diff") +
+	predictions_densities(fp_games, tn_games, tp_games, fn_games, "tower_diff") +
+	predictions_densities(fp_games, tn_games, tp_games, fn_games, "dragon_diff") +
+	predictions_densities(fp_games, tn_games, tp_games, fn_games, "rift_herald_diff") +
+	plot_layout(ncol = 2)
+```
+
+The overlap in `kill_diff` and `dragon_diff` makes the decision tree incorrectly
+classify games lost by team 1 as wins, because team 1 had good enough performance
+in them.
+
+
+```{r fig.width=12}
+predictions_proportions <- function(fp, tn, tp, fn, col) {
+	col_sym <- sym(col)
+	
+	bind_rows(
+		fp %>% count(!!col_sym) %>% mutate(class = "FP", Prop = n / sum(n)),
+		fn %>% count(!!col_sym) %>% mutate(class = "FN", Prop = n / sum(n)),
+		tn %>% count(!!col_sym) %>% mutate(class = "TN", Prop = n / sum(n)),
+		tp %>% count(!!col_sym) %>% mutate(class = "TP", Prop = n / sum(n))
+	) %>%
+		ggplot(aes(x = !!col_sym, y = Prop, fill = class)) +
+		geom_col(position = "dodge") +
+		scale_y_continuous(labels = scales::percent) +
+		labs(title = paste("Proportion of", col, "by prediction class"),
+			 x = paste(col, "achieved by"),
+			 fill = "prediction class") +
+		theme_minimal()
+}
+
+predictions_proportions(fp_games, tn_games, tp_games, fn_games, "first_blood") +
+	predictions_proportions(fp_games, tn_games, tp_games, fn_games, "first_tower") +
+	predictions_proportions(fp_games, tn_games, tp_games, fn_games, "first_dragon") +
+	predictions_proportions(fp_games, tn_games, tp_games, fn_games, "first_herald") +
+	plot_layout(ncol = 2)
+```
+
+If `first_herald` was used, maybe the tree could correctly predict more games, because
+FNs, it had more `first_heralds` then FPs, and vice versa when team 2 captured it.
+We will set the predictors to be `kill_diff`, `dragon_diff` and `first_herald`,
+but we must also change the `cp` for tree to be able to pickup the new predictor.
+
+```{r}
+formula <- team1_won ~ kill_diff + dragon_diff + first_herald
+tree <- decision_tree(formula, cp = 0.001)
+tree$conf_matrix
+```
+
+This slightly balances the model. We will now fine tune the `cp` parameter on
+the tree.
 
 ```{r}
 set.seed(42069)
@@ -90,10 +201,10 @@ train_control <- trainControl(
   savePredictions = "final"
 )
 
-tune_grid <- expand.grid(cp = seq(from = 0.000001, to = 0.0015, by = 0.000005))
+tune_grid <- expand.grid(cp = seq(from = 0.000001, to = 0.002, by = 0.000005))
 
 tuned_tree_model <- train(
-  form = formula,
+  form = team1_won ~ kill_diff + dragon_diff + first_herald,
   data = train_data,
   method = "rpart",
   trControl = train_control,
@@ -108,27 +219,14 @@ plot(tuned_tree_model,
 ```
 
 ```{r}
-plot_decision_tree(tuned_tree_model$finalModel)
-tuned_tree_model$bestTune
-tuned_tree_model$results[rownames(tuned_tree_model$bestTune),][['Accuracy']]
+predictions <- predict(tuned_tree_model, newdata = test_data)
+confusionMatrix(data = predictions, reference = test_data$team1_won, positive = "1")
 ```
 
-The best tuned model had `cp = 0.000391` and accuracy `r tuned_tree_model$results[rownames(tuned_tree_model$bestTune),][['Accuracy']]`,
-which is around 2% better. Not much of an improvement.
+The `cp` tuning will not save us here. Even though the `cp` was the best
+it could, it provided no significant change to the model's accuracy, which
+is the same as with arbitrary chosen `cp = 0.001`, 67.83%
 
-
-```{r}
-logreg_model <- logistic_reg() %>%
-	set_engine("glm") %>%
-	set_mode("classification") %>%
-	fit(team1_won ~ kill_diff, data = train_data)
-
-predictions <- predict(logreg_model, new_data = test_data, type = "class")
-
-conf_matrix <- confusionMatrix(data = predictions$.pred_class, reference = test_data$team1_won)
-
-print(conf_matrix)
-```
 
 
 
