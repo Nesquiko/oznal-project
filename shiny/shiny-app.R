@@ -15,14 +15,14 @@ predictor_ui <- tabPanel(
     ),
     
     fluidRow(
-      column(5, div(class="header-box", "GAME CONCLUSION PREDICTOR")),
-      column(2, div(class="header-logo", tags$img(src="lol-logo-.png", width = "100px", style="display: flex; ", alt="Logo"))),
-      column(5, div(class="header-box", "BASED ON EARLY GAME EVENTS"))
+      column(5, div("GAME CONCLUSION PREDICTOR", style = "background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 10px 16px; border-radius: var(--border-radius-main); text-align: center; font-weight: bold; font-size: 1.3em; border: 1px solid var(--lol-gold); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; min-height: 60px;")),
+      column(2, div(style = "display: flex; justify-content: center;", tags$img(src="lol-logo-.png", width = "100px", style="display: flex; ", alt="Logo"))),
+      column(5, div("BASED ON EARLY GAME EVENTS", style = "background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 10px 16px; border-radius: var(--border-radius-main); text-align: center; font-weight: bold; font-size: 1.3em; border: 1px solid var(--lol-gold); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; min-height: 60px;")),
     ),
     
     fluidRow(
       column(10, offset = 1,
-             div(class="slider-container",
+             div(style = "text-align: center; background-color: rgba(0, 50, 78, 0.9); padding: 20px 30px 10px 30px; border-radius: var(--border-radius-main); margin-top: 15px; margin-bottom: 15px; border: 1px solid var(--lol-gold); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);",
                  h4("Minute", style="color: var(--lol-gold);"),
                  sliderInput("minute", label=NULL, min = 5, max = 15, value = 10, step = 1, width = "100%")
              )
@@ -30,12 +30,11 @@ predictor_ui <- tabPanel(
     ),
     
     fluidRow(
-      class = "slider-container",
-      style = "background-color: rgba(0, 50, 78, 0.9); border-radius: 15px; border: 1px solid var(--lol-gold); margin-bottom: 30px; margin-left: 0px; margin-right: 0px;",
+      style = "background-color: rgba(0, 50, 78, 0.9); padding: 20px 30px 10px 30px; border-radius: var(--border-radius-main); border: 1px solid var(--lol-gold); margin-top: 15px; margin-bottom: 30px; margin-left: 0px; margin-right: 0px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); text-align: center;",
       column(
         width = 6,
         align = "center",
-        div(class = "custom-radio-title", "First Player Kill"),
+        div("First Player Kill", style = "color: var(--lol-gold); text-align: center; font-size: 1.4em; margin-bottom: 15px; font-weight: bold;"),
         div(
           class = "custom-radio-group",
           radioButtons(
@@ -50,7 +49,7 @@ predictor_ui <- tabPanel(
       column(
         width = 6,
         align = "center",
-        div(class = "custom-radio-title", "First Tower Kill"),
+        div("First Tower Kill", style = "color: var(--lol-gold); text-align: center; font-size: 1.4em; margin-bottom: 15px; font-weight: bold;"),
         div(
           class = "custom-radio-group",
           radioButtons(
@@ -68,14 +67,14 @@ predictor_ui <- tabPanel(
       column(6,
              div(class="team-panel",
                  h4("TEAM 1"),
-                 div(class="mb-4",
+                 div(style = "margin-bottom: 25px;",
                      tags$label("Player kills", `for`="t1_kills", class="control-label", 
-                                style="color: var(--lol-gold); margin-bottom: 8px; display: block;"),
+                                style="color: var(--lol-gold); display: block;"),
                      numericInput("t1_kills", label=NULL, value = 0, min = 0, width="100%")
                  ),
                  div(
                    tags$label("Tower kills", `for`="t1_towers", class="control-label", 
-                              style="color: var(--lol-gold); margin-bottom: 8px; display: block;"),
+                              style="color: var(--lol-gold); display: block;"),
                    numericInput("t1_towers", label=NULL, value = 0, min = 0, width="100%")
                  )
              )
@@ -84,29 +83,29 @@ predictor_ui <- tabPanel(
       column(6,
              div(class="team-panel",
                  h4("TEAM 2"),
-                 div(class="mb-4",
+                 div(style = "margin-bottom: 25px;",
                      tags$label("Player kills", `for`="t2_kills", class="control-label", 
-                                style="color: var(--lol-gold); margin-bottom: 8px; display: block;"),
+                                style="color: var(--lol-gold); display: block;"),
                      numericInput("t2_kills", label=NULL, value = 0, min = 0, width="100%")
                  ),
                  div(
                    tags$label("Tower kills", `for`="t2_towers", class="control-label", 
-                              style="color: var(--lol-gold); margin-bottom: 8px; display: block;"),
+                              style="color: var(--lol-gold); display: block;"),
                    numericInput("t2_towers", label=NULL, value = 0, min = 0, width="100%")
                  )
              )
       )
     ),
     fluidRow(
-      column(12,
-             div(id="predict_button_container",
-                 actionButton("predict_button", "PREDICT")
-             )
-      ),
+      column(8, offset = 2, align = "center",
+             uiOutput("prediction_display_wrapper")
+      )
     ),
     fluidRow(
       column(8, offset = 2, align = "center",
-             uiOutput("prediction_display")
+             div(style = "display: flex; align-items: center; justify-content: center; height: 100%; margin-top: 25px; margin-bottom: 25px;",
+                 actionButton("predict_button", class="predict_button", "PREDICT")
+             )
       )
     )
   )
@@ -117,13 +116,33 @@ data_upload_ui <- tabPanel(
   "Data Upload",
   fluidRow(
     column(8, offset = 2,
-           div(style = "background-color: rgba(0, 50, 78, 0.9); padding: 20px; border-radius: 15px; border: 1px solid var(--lol-gold);",
+           div(style = "background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 20px; border-radius: 15px; border: 1px solid var(--lol-gold); margin-bottom: 25px;",
                fileInput("file", "Choose CSV File",
                          multiple = FALSE,
                          accept = c("text/csv",
                                     "text/comma-separated-values,text/plain",
                                     ".csv")),
                verbatimTextOutput("summary")
+           )
+    )
+  ),
+  fluidRow(
+    column(8, offset = 2,
+           div(class="slider-container",
+               h4("Parameters", style="color: var(--lol-gold);"),
+               h5("Parameter 1", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("parameter1", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
+               h5("Parameter 2", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("parameter2", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
+               h5("Parameter 3", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("parameter3", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
+           )
+    )
+  ),
+  fluidRow(
+    column(8, offset = 2, align = "center",
+           div(style = "display: flex; align-items: center; justify-content: center; height: 100%; margin-top: 25px; margin-bottom: 25px;",
+               actionButton("train_button", "TRAIN")
            )
     )
   )
@@ -188,11 +207,15 @@ server <- function(input, output, session) {
   prediction_result <- reactiveVal(NULL)
   view_state <- reactiveVal("input")
   
-  output$prediction_display <- renderUI({
-    req(prediction_result())
-    predicted_winner <- prediction_result()
+  output$prediction_display_wrapper <- renderUI({
+    if (is.null(prediction_result())) {
+      return(NULL)
+    }
+    prediction_result <- prediction_result()
+    predicted_winner <- prediction_result
     
     tags$div(
+      style = "text-align: center; background-color: rgba(0, 50, 78, 0.9); padding: 20px 30px 10px 30px; border-radius: var(--border-radius-main); margin-top: 15px; margin-bottom: 15px; border: 1px solid var(--lol-gold); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);",
       p("Prediction:", class="prediction-headline"),
       h2(paste(predicted_winner, "is predicted to win."), class="prediction-text"),
       h4(ifelse(predicted_winner == "Team 1", 
@@ -218,6 +241,10 @@ server <- function(input, output, session) {
     )
     prediction_result(pred)
     view_state("output")
+  })
+  
+  observeEvent(input$train_button, {
+    
   })
   
   observeEvent(input$reset_button, {

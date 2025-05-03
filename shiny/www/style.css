@@ -24,27 +24,6 @@ body {
   align-items: center;
 }
 
-.header-box {
-  background-color: rgba(0, 50, 78, 0.9);
-  color: var(--lol-gold);
-  padding: 10px 16px;
-  border-radius: var(--border-radius-main);
-  text-align: center;
-  font-weight: bold;
-  font-size: 1.3em;
-  border: 1px solid var(--lol-gold);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 60px;
-}
-
-.header-logo {
-  display: flex;
-  justify-content: center;
-}
-
 .slider-container {
   text-align: center;
   background-color: rgba(0, 50, 78, 0.9);
@@ -153,7 +132,7 @@ body {
   margin-bottom: 25px;
 }
 
-#predict_button {
+.predict_button {
   background-color: var(--lol-gold);
   color: var(--lol-text-dark);
   border: 1px solid var(--lol-dark-blue);
@@ -173,7 +152,7 @@ body {
   cursor: pointer;
 }
 
-#predict_button:hover {
+.predict_button:hover {
   background-color: var(--lol-dark-blue);
   border-color: var(--lol-gold);
   color: var(--lol-text-light);
@@ -181,7 +160,7 @@ body {
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
 }
 
-#predict_button:active {
+.predict_button:active {
   transform: translateY(1px);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -196,6 +175,39 @@ body {
   font-size: 1.5em;
   text-align: center;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.train_button {
+  background-color: var(--lol-gold);
+  color: var(--lol-text-dark);
+  border: 1px solid var(--lol-dark-blue);
+  border-radius: 25px;
+  width: 50%;
+  height: 50px;
+  font-size: 1.2em;
+  font-weight: bold;
+  text-transform: uppercase;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.train_button:hover {
+  background-color: var(--lol-dark-blue);
+  border-color: var(--lol-gold);
+  color: var(--lol-text-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
+}
+
+.train_button:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
 }
 
 #reset_button {
