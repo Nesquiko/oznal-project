@@ -532,6 +532,3 @@ The following external sources were referenced in this project:
 *   Rpart. (n.d.). *rpart package: rpart function*. RDRR.io. Accessed May 3, 2025, https://rdrr.io/cran/rpart/man/rpart.html
 *   Starmer, J. (2018). *StatQuest: AdaBoost*. YouTube. Accessed May 3, 2025, https://www.youtube.com/watch?v=LsK-xG1cLYA
 *   GeeksforGeeks. (n.d.). *AdaBoost using caret package in R*. Accessed May 3, 2025, https://www.geeksforgeeks.org/adaboost-using-caret-package-in-r/
-
-
-
