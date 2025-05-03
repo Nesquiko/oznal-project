@@ -11,6 +11,32 @@ This model choice is supported by the EDA which identified some non-linear relat
 (numeric `_diff`, `_champdiff`, `time_first_*`, categorical `first_*`). While features
 like `time_first_*` and `_champdiff` showed limited individual predictive power.
 
+|                                | Requirement                                                                                                                  | Our dataset                                                                                                                                                                                    |
+| :----------------------------- | :--------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Target variable type**    | Categorical for classification.                                                                                              | `team1_won` is a binary variable (0 or 1), which we convert to a factor with two levels.                                                                                                       |
+| **2. Feature data types**      | Can handle both numerical and categorical predictor variables.                                                               | Our dataset contains a mix of numerical (`_diff`, `time_first_*`, `_champdiff`) and categorical (`first_*`) features, making decision trees a fit without requiring prior transformations.     |
+| **3. Assumption of linearity** | Does **not** assume a linear relationship between predictors and the target.                                                 | EDA suggested non-linear relationships, such as the threshold effects seen with achieving `first_` events.                                                                                     |
+| **4. Feature Scaling**         | Does **not** require predictor variables to be scaled. The splitting process is based on feature values/categories directly. | Our numerical features (`_diff`, `time_first_*`, `_champdiff`) are on different scales. Decision trees are invariant to the scale of numerical features, so no scaling was necessary.          |
+| **6. Sensitivity to outliers** | Less sensitive to outliers in predictor variables.                                                                           | EDA didn't reveal extreme outliers.                                                                                                                                                            |
+| **7. Missing value handling**  | `rpart` can handle missing values in predictor variables using surrogate splits.                                             | Our initial data preparation addressed missing values in `first_*` (to 'none') and `_diff` (to 0). Although the `time_first_*` columns contained NAs, we chose to exclude them from the model. |
+| **8. Predictor independence**  | Decision trees are can handle multicollinearity.                                                                             | EDA showed low to moderate correlations between our `_diff` and `first_*` features. Decision trees can still function even if some predictors are correlated.                                  |
+
+
+### Note on FPs vs FNs
+
+Our goal is to only predict the outcome of a game, but in different application.
+For instance, when betting, a FP is costs more. The bettor will bet on team 1
+win, but the opposite happens and thus he/she looses money. And FP makes them not
+bet on team 1, so they don't loose any money (this doesn't apply when the bettor
+decides to bet on team 2, as that would have the same effect, just reversed).
+
+Or when a team wants to create a strategic plan. A FP can make them be overconfident
+and lead them to defeat. On the other hand FN might make the team cautious and miss
+opportunities. The impact depends on the team's risk tolerance and goals.
+
+Based on these facts we will treat FP with same weight as FN, thus optimal cutoff
+will be 0.5.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -23,7 +49,9 @@ library(rpart.plot)
 library(caret)
 library(ranger)
 library(adabag)
+library(ggplot2)
 library(patchwork)
+library(pROC)
 source("./dataset.R")
 source("./model_comparison.R")
 
@@ -50,9 +78,12 @@ formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
   first_tower
 
 tree_model <- rpart(
-	formula = formula,
-	data = train_data,
-	method = "class",
+	formula = formula,      # The model formula defining predictors and the target.
+	data = train_data,      # The training dataset containing the variables in the formula.
+	method = "class",       # Specifies that this is a classification tree.
+    # cp = 0.01,            # Default complexity parameter. Splits are kept if they improve fit by at least this amount.
+    # minsplit = 20,        # Default minimum number of observations in a node to attempt a split.
+    # maxdepth = 30         # Default maximum depth of the tree.
 )
 
 plot_decision_tree(tree_model)
@@ -162,10 +193,13 @@ but we must also change the `cp` for tree to be able to pickup the new predictor
 ```{r}
 formula <- team1_won ~ kill_diff + dragon_diff + first_herald
 tree_model <- rpart(
-	formula = formula,
-	data = train_data,
-	method = "class",
-	cp = 0.001)
+	formula = formula,      # The model formula defining predictors and the target.
+	data = train_data,      # The training dataset containing the variables in the formula.
+	method = "class",       # Specifies that this is a classification tree.
+	cp = 0.001,             # Complexity parameter. Splits are kept if they improve fit by at least this amount.
+    # minsplit = 20,        # Default minimum number of observations in a node to attempt a split.
+    # maxdepth = 30         # Default maximum depth of the tree.
+	)
 
 predictions <- predict(tree_model, newdata = train_data, type = "class")
 train_conf_matrix <- confusionMatrix(data = predictions, reference = train_data$team1_won, positive = "1")
@@ -176,27 +210,37 @@ test_conf_matrix <- confusionMatrix(data = predictions, reference = test_data$te
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
-This slightly balances the model. We will now fine tune the `cp` parameter on
-the tree.
+```{r}
+roc(tree_model, test_data)
+```
+
+This slightly balances the model, and AUC slightly increased.
+We will now fine tune the `cp` parameter on the tree.
+
 
 ```{r}
 set.seed(42069)
 
 train_control <- trainControl(
-  method = "cv",
-  number = 10,
-  savePredictions = "final"
+	method = "cv",            # Use cross-validation.
+	number = 10,              # Perform 10-fold cross-validation. The training data will be split into 10 subsets.
 )
 
-tune_grid <- expand.grid(cp = seq(from = 0.000001, to = 0.002, by = 0.000005))
+tune_grid <- expand.grid(
+	cp = seq(                  # Generate a sequence of complexity parameter values.
+		from = 0.000001,         # Start the sequence from this value.
+		to = 0.002,              # End the sequence at this value.
+		by = 0.000005            # Increment the sequence by this step size.
+	)
+)
 
 tuned_tree_model <- train(
-  form = team1_won ~ kill_diff + dragon_diff + first_herald,
-  data = train_data,
-  method = "rpart",
-  trControl = train_control,
-  tuneGrid = tune_grid,
-  metric = "Accuracy"
+	form = team1_won ~ kill_diff + dragon_diff + first_herald,
+	data = train_data,              # The training dataset used to fit the model.
+	method = "rpart",               # Specifies the modeling method to tune (rpart decision tree).
+	trControl = train_control,      # Links the defined cross-validation settings to the tuning process.
+	tuneGrid = tune_grid,           # Provides the grid of cp values that caret should evaluate.
+	metric = "Accuracy"             # The performance metric used by caret to select the best cp value during CV.
 )
 
 plot(tuned_tree_model,
@@ -206,9 +250,6 @@ plot(tuned_tree_model,
 ```
 
 ```{r}
-predictions <- predict(tuned_tree_model, newdata = test_data)
-confusionMatrix(data = predictions, reference = test_data$team1_won, positive = "1")
-
 predictions <- predict(tuned_tree_model, newdata = train_data)
 train_conf_matrix <- confusionMatrix(data = predictions, reference = train_data$team1_won, positive = "1")
 
@@ -218,13 +259,21 @@ test_conf_matrix <- confusionMatrix(data = predictions, reference = test_data$te
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
+```{r}
+roc(tuned_tree_model, test_data)
+```
+
 The `cp` tuning will not save us here. Even though the `cp` was the best
 it could, it provided no significant change to the model's accuracy, which
-is the same as with arbitrary chosen `cp = 0.001`, 67.83%
+is the same as with arbitrary chosen `cp = 0.001`, 67.83%. Even the AUC
+showed minimal difference.
 
 ## Random forest
 
-First we will use simplest random forest, using defaults.
+Since random forest is just a collection of decision trees, we can use this
+model with our dataset and expect at least same results as with one decision tree.
+Same requirements hold for random forest as for decision tree, details can be
+found at the decision tree requirements table.
 
 ```{r}
 set.seed(42069)
@@ -232,9 +281,14 @@ set.seed(42069)
 formula <- team1_won ~ kill_diff + dragon_diff + first_herald
 
 rf_model <- ranger(
-	formula = formula,
-	data = train_data
+	formula = formula,            # The model formula defining 3 predictors and the target.
+	data = train_data,            # The training dataset containing the variables in the formula.
+	# num.trees = 500,            # Default number of trees in the forest.
+	# mtry = ceil(sqrt(# preds)), # Default number of variables randomly sampled at each split (sqrt(8) for classification).
+	# min.node.size = 1,          # Default minimum number of observations in a terminal node.
+	# classification = TRUE,      # Implicitly set to TRUE as target is factor.
 )
+
 predictions <- predict(rf_model, data = train_data)
 train_conf_matrix <- confusionMatrix(data = predictions$predictions, reference = train_data$team1_won, positive = "1")
 
@@ -244,9 +298,31 @@ test_conf_matrix <- confusionMatrix(data = predictions$predictions, reference = 
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
-This model gave more balanced predictions. But the accuracy is very similar to
-the best tuned decision tree. Let's see what happens when we let more features
-into the model.
+**NOTE** we didn't know how to modify our `roc` function used above for random
+forest, so we installed `pROC` and showed it with that.
+
+```{r message = FALSE, results = 'hide'}
+rf_model_prob <- ranger(
+	formula = formula,
+	data = train_data,
+	probability = TRUE  # grows a probability forest for the ROC curve
+)
+
+rf_predictions_prob <- predict(rf_model_prob, data = test_data)
+predicted_probs_team1_won <- rf_predictions_prob$predictions[, "1"]
+actual_outcomes <- test_data$team1_won
+rf_roc_curve <- pROC::roc(response = actual_outcomes, predictor = predicted_probs_team1_won)
+
+ggroc(rf_roc_curve,) +
+	annotate("text", x = 0.75, y = 0.05,
+			 label = paste("AUC =", format(auc(rf_roc_curve), digits = 3)),
+			 hjust = 0, vjust = 0, size = 4) +
+	theme_minimal()
+```
+
+This model gave more balanced predictions. The AUC increased by 0.3.
+But the accuracy is very similar to the best tuned decision tree. Let's see what
+happens when we let more features into the model.
 
 ```{r}
 set.seed(42069)
@@ -256,8 +332,12 @@ formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
   first_tower
 
 rf_model <- ranger(
-	formula = formula,
-	data = train_data,
+	formula = formula,            # The model formula defining all 8 predictors and the target.
+	data = train_data,            # The training dataset containing the variables in the formula.
+	# num.trees = 500,            # Default number of trees in the forest.
+	# mtry = ceil(sqrt(# preds)), # Default number of variables randomly sampled at each split (sqrt(8) for classification).
+	# min.node.size = 1,          # Default minimum number of observations in a terminal node.
+	# classification = TRUE,      # Implicitly set to TRUE as target is factor.
 )
 
 predictions <- predict(rf_model, data = train_data)
@@ -269,9 +349,29 @@ test_conf_matrix <- confusionMatrix(data = predictions$predictions, reference = 
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
-This is the highest accuracy so far, and the most balanced model yet.
-But still there isn't any significant improvement, so we think we have a case
-of SISO here.
+
+```{r message = FALSE, results = 'hide'}
+rf_model_prob <- ranger(
+	formula = formula,
+	data = train_data,
+	probability = TRUE  # grows a probability forest for the ROC curve
+)
+
+rf_predictions_prob <- predict(rf_model_prob, data = test_data)
+predicted_probs_team1_won <- rf_predictions_prob$predictions[, "1"]
+actual_outcomes <- test_data$team1_won
+rf_roc_curve <- pROC::roc(response = actual_outcomes, predictor = predicted_probs_team1_won)
+
+ggroc(rf_roc_curve,) +
+	annotate("text", x = 0.75, y = 0.05,
+			 label = paste("AUC =", format(auc(rf_roc_curve), digits = 3)),
+			 hjust = 0, vjust = 0, size = 4) +
+	theme_minimal()
+```
+
+This is the highest accuracy so far, and the most balanced model yet. Also
+Highest AUC of 0.744. But still there isn't any significant improvement, so we
+think we have a case of SISO here.
 
 ## AdaBoost
 
@@ -296,11 +396,14 @@ if (file.exists(model_file_path)) {
 	adaboost_model <- readRDS(model_file_path)
 } else {
 	adaboost_model <- train(
-		form = ada_formula,
-		data = train_data,
-		method = "AdaBoost.M1",
-		metric = "Accuracy",
-		trControl = trainControl(method = "cv", number = 5) 
+		form = ada_formula,          # The model formula defining all 8 predictors and the target.
+		data = train_data,           # The training dataset used for CV and the final model fit.
+		method = "AdaBoost.M1",      # Specifies the modeling method (AdaBoost.M1 from adabag package) to use via caret.
+		metric = "Accuracy",         # The performance metric that caret uses to evaluate models during CV.
+		trControl = trainControl(    # Controls the training process, specifically resampling for tuning and evaluation.
+			method = "cv",             # Use cross-validation resampling.
+			number = 5                 # Perform 5-fold cross-validation on the training data, 10 was taking too long.
+		)
 	)
 }
 
@@ -313,32 +416,29 @@ test_conf_matrix <- confusionMatrix(data = predictions, reference = test_data$te
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
+```{r}
+roc(adaboost_model, test_data)
+```
+
 We are now certain that we have here a case of SISO. The AdaBoost has same
-accuracy, but worse balance, then the random forest. We will stop trying
-different models, because we have evidence here that our data isn't good enough
-for better models.
+accuracy, but worse balance, then the random forest, slightly bigger AUC. We
+will stop trying different models, because we have evidence here that our data
+isn't good enough for better models.
 
 ## Comparions on testing set
 
 Having trained and evaluated a decision tree, a random forest, and an AdaBoost
-model, we now compare their performance on the test set:
-
-*   **Accuracy:** Overall proportion of correct predictions.
-*   **Sensitivity:** Ability to correctly predict team 1 wins.
-*   **Specificity:** Ability to correctly predict Team 1 losses.
-*   **Balanced accuracy:** The average of Sensitivity and Specificity, or how the model is "balanced".
-
-Models in comparison table:
+model, we now compare their performance on the test set. Models in comparison table:
 
 1. the initial decision tree (`cp=0.01`, all features),
 2. the random forest (all features, default parameters),
 3. and the AdaBoost.M1 model (all features, tuned `mfinal` and `maxdepth` implicitly by caret's default grid with `number=5` CV).
 
-| Model         | Accuracy | Sensitivity | Specificity | Balanced accuracy |
-| :------------ | :------- | :---------- | :---------- | :---------------- |
-| Decision Tree | 0.6689   | 0.7508      | 0.5771      | 0.6639            |
-| Random Forest | 0.6806   | 0.6890      | 0.6712      | 0.6801            |
-| AdaBoost.M1   | 0.6812   | 0.7245      | 0.6327      | 0.6786            |
+| Model         | Accuracy | Sensitivity | Specificity | Balanced accuracy | AUC    |
+| :------------ | :------- | :---------- | :---------- | :---------------- | :----- |
+| Decision Tree | 0.6689   | 0.7508      | 0.5771      | 0.6639            | 0.713  |
+| Random Forest | 0.6806   | 0.6890      | 0.6712      | 0.6801            | 0.744  |
+| AdaBoost.M1   | 0.6812   | 0.7245      | 0.6327      | 0.6786            | 0.747  |
 
 1.  **Accuracy:** All three models achieved similar overall accuracy,
 	falling within a slim range of approximately 67% to 68.1%.
@@ -359,11 +459,15 @@ Models in comparison table:
 	    lower Specificity (63.3%). Like the initial Decision Tree, it shows a
 	    significant bias towards predicting Team 1 wins, making more FP errors
 	    than FNs.
+3.  **AUC** The AUC was similar for all models, but the best model in this metric
+	was AdaBoost.M1.
 
 Based on our evaluations, the **Random Forest with all features** appears to be
 the best model from those tested. While its overall accuracy is only slightly
-higher than the AdaBoost.M1 model, it's more **balanced** (similar Sensitivity and Specificity),
+lower than the AdaBoost.M1 model, it's more **balanced** (similar Sensitivity and Specificity),
 making it a more reliable across both winning and losing scenarios for team 1.
+Also it's AUC is slightly lower when compared against AdaBoost.M1, but the time
+to train the AdaBoost.M1 makes the Random Forest the better option.
 
 The consistent plateau in accuracy around 67-68% across different model types
 suggests that the current set of early-game features (`_diff` and `first_`) may
@@ -371,7 +475,6 @@ have reached their limit in terms of predictive power for the final game outcome
 This supports our earlier conclusion about this being a case of SISO with the
 given features. Also, games of League of Legends can be won after early
 game, early game state doesn't have to dictate the end game result.
-
 
 ## Conclusion
 
@@ -417,4 +520,18 @@ mean incorporating more comprehensive early-game features, such as Gold Differen
 and Experience Difference, or potentially incorporating data from later stages of
 the game. Based on our findings, with the current feature set, the Random Forest
 model offered the best balance of predictive power and error distribution.
+
+## References
+
+The following external sources were referenced in this project:
+
+*   PandaScore. (n.d.). *PandaSkill*. GitHub. Accessed May 3, 2025, https://github.com/PandaScore/PandaSkill/tree/main
+*   IEEE DataPort. (2024). *League of Legends Esports Player Game Data (2019-2024)*. Accessed May 3, 2025, https://ieee-dataport.org/documents/league-legends-esports-player-game-data-2019-2024
+*   Haines, L. A. (2025). *25.S1.4 League of Legends Champion Data (2025)*. Kaggle. Accessed May 3, 2025, https://www.kaggle.com/datasets/laurenainsleyhaines/25-s1-4-league-of-legends-champion-data-2025/data
+*   Ranger. (n.d.). *ranger package: ranger function*. RDRR.io. Accessed May 3, 2025, https://imbs-hl.github.io/ranger/reference/ranger.html
+*   Rpart. (n.d.). *rpart package: rpart function*. RDRR.io. Accessed May 3, 2025, https://rdrr.io/cran/rpart/man/rpart.html
+*   Starmer, J. (2018). *StatQuest: AdaBoost*. YouTube. Accessed May 3, 2025, https://www.youtube.com/watch?v=LsK-xG1cLYA
+*   GeeksforGeeks. (n.d.). *AdaBoost using caret package in R*. Accessed May 3, 2025, https://www.geeksforgeeks.org/adaboost-using-caret-package-in-r/
+
+
 
