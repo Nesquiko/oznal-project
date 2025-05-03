@@ -201,7 +201,7 @@ should be more than enough.
 
 The choice of `N = 12 minutes` is arbitrary, just from our experience of playing
 LoL. The definition of "early game" is: The game phase where players focus on
-their lanes, and it ends when the first turret in any lane is destroyed. [source](https://gameboost.com/definitions/league-of-legends/early-game)
+their lanes, and it ends when the first turret in any lane is destroyed [(source)](https://gameboost.com/definitions/league-of-legends/early-game).
 As can be seen later in EDA, 10 to 12 minutes have the most first towers destroyed.
 
 ## Notice on LLM usage
