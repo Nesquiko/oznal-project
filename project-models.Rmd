@@ -328,8 +328,8 @@ happens when we let more features into the model.
 set.seed(42069)
 
 formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
-  tower_diff + first_blood + first_dragon + first_herald +
-  first_tower
+	tower_diff + first_blood + first_dragon + first_herald +
+	first_tower
 
 rf_model <- ranger(
 	formula = formula,            # The model formula defining all 8 predictors and the target.

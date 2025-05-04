@@ -143,32 +143,167 @@ data_upload_ui <- tabPanel(
   )
 )
 
+slideStyle <- "height: fit-content; background-color: rgba(0, 50, 78, .95); color: var(--lol-gold); padding: 20px 0 25px 0; border-radius: 15px; border: 1px solid var(--lol-gold); display: flex; flex-direction: column; gap: 8px"
+
 presentaion_ui <- tabPanel(
 	"Presentation",
 	fluidPage(
-		div(style = "background-color: rgba(0, 50, 78, .95); color: var(--lol-gold); padding: 20px 0 25px 0; border-radius: 15px; border: 1px solid var(--lol-gold); display: flex; flex-direction: column; gap: 8px",
+		style = "display: flex; flex-direction: column; row-gap: 10em; justify-content: space-between; font-size: 1.2em",
+		div(style = slideStyle,
 			fluidRow(
 				tags$h2("Predicting outcome of League of Legends game by early game", style = "text-align: center; margin-bottom: 20px;"),
-				column(3, offset = 2,
+				column(4, offset = 1,
 					tags$h3("LoL - League of Legends", style = "margin-top: 20px; color: var(--lol-gold);"),
 					tags$li("League of Legends is a 5v5 mutlplayer online game"),
+					tags$li("Team wins if they destroy oponents nexus"),
+					tags$li(tags$b(tags$i("Team 1 has slight advantage"))),
 					tags$h3("Our Goal", style = "margin-top: 20px; color: var(--lol-gold);"),
-					tags$li("Predict outcome of a game using only data from early game.")),
-				column(5, offset = 2, tags$img(src = "lol-map.ppm", width = "400px", alt = "LoL map"))),
+					tags$li("Predict outcome of a game using only data from early game."),
 
-			fluidRow(
-				column(3, offset = 2,
 					tags$h3("Dataset", style = "margin-top: 20px; color: var(--lol-gold);"),
 					tags$ul(
 						tags$li("Data recorded from professional League of Legends games"),
 						tags$li("Player kills, tower destructions, dragon kills..."),
-						tags$li("Created a \"snapshot\" of early game")
-					)),
-				column(5, plotOutput("diff_distribution")),
-				)
+						tags$li("Created a \"snapshot\" of early game",
+							tags$ul(
+								tags$li("Difference in kills, towers, dragons, ..."),
+								tags$li("Who achieved first blood, tower, dragon, ..."),
+								tags$li("When was", tags$i("first"), "achieved"),
+								tags$li("Team champion composition"),
+							)),
+					),
+				),
+				column(6, offset = 1, tags$img(src = "lol-map.ppm", width = "512px", alt = "LoL map")))
+			),
 
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Differences", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Kills"),
+						tags$li("Dragons"),
+						tags$li("Towers"),
+						tags$li("Rift heralds"),
+					),
+					tags$h4("Kill difference", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Wide range"),
+						tags$li("Most normal"),
+						tags$li("Separation for both outcomes of a game"),
+					),
+				),
+				column(5, plotOutput("diff_distribution"), plotOutput("killdiff_dist")),
+			)
 		),
-	  )
+
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Team composition differences", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$li("Players play as champions"),
+					tags$li("Each champion has a type (fighter, mage, assasin, ...)"),
+
+					tags$h4("Useless...", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$li("No separation per game outcome"),
+					tags$li("Teams tend to play with same team composition"),
+					tags$li("Not used as predictors"),
+				),
+				column(6, plotOutput("champdiff_distribution")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("First events", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Who achieved first event in the game"),
+						tags$ul(
+							tags$li("First blood"),
+							tags$li("First dragon"),
+							tags$li("First herald"),
+							tags$li("First tower"),
+						)
+					),
+					tags$h4("Analysis", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Achieving some", tags$i("first event"), "team has above 50% of winning"),
+						tags$li(tags$i("first_tower"), "has the highest chance, but doesn't happen much"),
+						tags$li(tags$i("first_blood"), "is the 2nd most predictive"),
+						tags$li(tags$i("first_dragon"), "tied with", tags$i("first_herald")),
+					),
+				),
+				column(6, plotOutput("first_dist"), plotOutput("first_gamewin_dist")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("First events times", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Achieving", tags$i("first event"), "earlier has no benefit"),
+						tags$li("Not used as predictors"),
+					),
+				),
+				column(6, plotOutput("first_times_winrates")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Relationship between", tags$i("diffs"), "and", tags$i("first"), style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(tags$i("diff"), "has 3 states at the end of early game"),
+						tags$ul(
+							tags$li(tags$i("0"), "- no team has lead"),
+							tags$li(tags$i("> 0"), "- team 1 has lead"),
+							tags$li(tags$i("< 0"), "- team 2 has lead"),
+						),
+					),
+					tags$h4("Analysis", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(tags$i("kill_diff & first_blood"), "- all cases covered",
+							tags$ul(
+								tags$li("no significant boost in win rate"),
+							),
+						),
+						tags$li(tags$i("dragon_diff & first_dragon"), "- missing cases",
+							tags$ul(
+								tags$li("no significant boost in win rate"),
+							),
+						),
+						tags$li(tags$i("rift_herald_diff & first_herald"), "- missing cases"),
+						tags$li(tags$i("tower_diff & first_tower"), "- didn't happen in majority of games"),
+						tags$li(tags$b(tags$i("No significant boost when first achieved"))),
+					),
+				),
+				column(6, plotOutput("diff_first_rel_winrate", height = "1300px")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Predictors selection", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(
+							tags$i("kill_diff"), 
+							tags$ul(
+							   tags$li("visible separation per game outcome"),
+							   tags$li("60% to 75% win rate if leading"),
+							),
+						),
+						tags$li(tags$i("dragon_diff"), "above average win rate if leading"),
+					),
+				),
+			)
+		),
+
+	),
 )
 
 ui <- tags$div(
