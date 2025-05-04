@@ -24,16 +24,30 @@ compare_conf_matrices <- function(conf1, conf2, names) {
 
 roc <- function(model, data) {
 	probabilities <- predict(model, newdata = data, type = "prob")
-	predictions_with_probs <- data %>%
+	data %>%
 		select(team1_won) %>%
-		bind_cols(probabilities)
+		bind_cols(probabilities) %>%
+		plot_roc()
+}
+
+roc_rf <- function(model, data) {
+	probabilities <- predict(model, data = data)
+	data %>%
+		select(team1_won) %>%
+		bind_cols(probabilities$predictions) %>%
+		plot_roc()
 	
+	
+}
+
+plot_roc <- function(predictions_with_probs) {
 	curve <- roc_curve(predictions_with_probs, truth = team1_won, `1`, event_level = "second")
 	auc_value <- roc_auc(predictions_with_probs, truth = team1_won, `1`, event_level = "second")
 	
 	autoplot(curve) +
 		annotate("text", x = 0.75, y = 0.05,
-				  label = paste("AUC =", format(auc_value$.estimate, digits = 3)),
-				  hjust = 0, vjust = 0, size = 4) +
+				 label = paste("AUC =", format(auc_value$.estimate, digits = 3)),
+				 hjust = 0, vjust = 0, size = 4) +
 		theme_minimal()
+	
 }

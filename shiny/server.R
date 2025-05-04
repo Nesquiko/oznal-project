@@ -9,6 +9,8 @@ library(caret)
 library(rpart)
 library(rpart.plot)
 library(yardstick)
+library(ranger)
+library(adabag)
 source("../dataset.R")
 source("../model_comparison.R")
 
@@ -28,8 +30,8 @@ server <- function(input, output, session) {
 		metadata <- read_csv("../data/game_metadata.csv", show_col_types = F)
 		player_stats <- read_csv("../data/game_players_stats.csv", show_col_types = F)
 		events <- read_csv("../data/game_events.csv", show_col_types = F)
-		champs <- read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
-			rename(name = `...1`) 
+		champs <- suppressMessages(read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
+			rename(name = `...1`)) 
 		early_game_dataset(player_stats, metadata, events, champs, N)
 	})
 
@@ -40,12 +42,11 @@ server <- function(input, output, session) {
 	 	train_data <- dataset()[train_indices, ] %>% mutate(team1_won = factor(team1_won))
 	 	test_data <- dataset()[-train_indices, ] %>% mutate(team1_won = factor(team1_won))
 		
-		return (list(train_data = train_data, test_data = test_data))
+		list(train_data = train_data, test_data = test_data)
 	})
 
 	 decition_tree_model <- reactive({
 		req(train_test_split())
-
 		train_data <- train_test_split()$train_data
 
 		formula <- team1_won ~ kill_diff + dragon_diff + first_herald
@@ -58,6 +59,43 @@ server <- function(input, output, session) {
 
 		list(model = tree_model)
 	 })
+
+	rf_model <- reactive({
+		req(train_test_split())
+		train_data <- train_test_split()$train_data
+
+		set.seed(42069)
+		formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
+			tower_diff + first_blood + first_dragon + first_herald +
+			first_tower
+
+		rf <- ranger(formula = formula, data = train_data)
+
+		rf_with_prob <- ranger(formula = formula, data = train_data, probability = TRUE)
+
+		list(model = rf, with_prob = rf_with_prob)
+	})
+
+	adaboost_model <- reactive({
+		req(train_test_split())
+		train_data <- train_test_split()$train_data
+
+		set.seed(42069)
+		ada_formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
+		  tower_diff + first_blood + first_dragon + first_herald +
+		  first_tower
+
+		model_file_path <- "../models/adaboost_tuned.rds"
+
+		if (file.exists(model_file_path)) {
+			ada_model <- readRDS(model_file_path)
+		} else {
+			stop("adaboost model not found")
+		}
+
+		list(model = ada_model)
+	})
+
 
 
   output$summary <- renderPrint({
@@ -356,14 +394,35 @@ server <- function(input, output, session) {
 	})
 
 	output$decision_tree_plot <- renderPlot({
-		tree_model <- decition_tree_model()$model;
-		plot_decision_tree(tree_model);
+		tree_model <- decition_tree_model()$model
+		plot_decision_tree(tree_model)
 	})
 
 	output$decision_tree_roc <- renderPlot({
-		tree_model <- decition_tree_model()$model;
-		test_data <- train_test_split()$test_data;
-		roc(tree_model, test_data);
+		tree_model <- decition_tree_model()$model
+		test_data <- train_test_split()$test_data
+		roc(tree_model, test_data)
 	})
+
+	output$rf_roc <- renderPlot({
+		rf_model_prob <- rf_model()$with_prob
+		test_data <- train_test_split()$test_data
+		roc_rf(rf_model_prob, test_data)
+	})
+
+	output$ada_roc <- renderPlot({
+		ada_model <- adaboost_model()$model
+		test_data <- train_test_split()$test_data
+		roc(ada_model, test_data)
+	})
+
+	output$model_comparison_table <- renderTable({
+		tibble(
+			Model = c("Decision tree", "Random forest", "AdaBoost"),
+			Accuracy = c(0.669, 0.680, 0.681),
+			Sensitivity = c(0.750, 0.689, 0.7245),
+			Specificity = c(0.577, 0.6712, 0.6327),
+			AUC = c(0.710, 0.745, 0.748))
+		}, digits = 3)
 }
 

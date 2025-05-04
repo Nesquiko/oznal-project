@@ -51,7 +51,6 @@ library(ranger)
 library(adabag)
 library(ggplot2)
 library(patchwork)
-library(pROC)
 source("./dataset.R")
 source("./model_comparison.R")
 
@@ -298,9 +297,6 @@ test_conf_matrix <- confusionMatrix(data = predictions$predictions, reference = 
 compare_conf_matrices(train_conf_matrix, test_conf_matrix, c("training", "testing"))
 ```
 
-**NOTE** we didn't know how to modify our `roc` function used above for random
-forest, so we installed `pROC` and showed it with that.
-
 ```{r message = FALSE, results = 'hide'}
 rf_model_prob <- ranger(
 	formula = formula,
@@ -308,17 +304,9 @@ rf_model_prob <- ranger(
 	probability = TRUE  # grows a probability forest for the ROC curve
 )
 
-rf_predictions_prob <- predict(rf_model_prob, data = test_data)
-predicted_probs_team1_won <- rf_predictions_prob$predictions[, "1"]
-actual_outcomes <- test_data$team1_won
-rf_roc_curve <- pROC::roc(response = actual_outcomes, predictor = predicted_probs_team1_won)
-
-ggroc(rf_roc_curve,) +
-	annotate("text", x = 0.75, y = 0.05,
-			 label = paste("AUC =", format(auc(rf_roc_curve), digits = 3)),
-			 hjust = 0, vjust = 0, size = 4) +
-	theme_minimal()
+roc_rf(rf_model_prob, test_data)
 ```
+
 
 This model gave more balanced predictions. The AUC increased by 0.3.
 But the accuracy is very similar to the best tuned decision tree. Let's see what
@@ -357,16 +345,7 @@ rf_model_prob <- ranger(
 	probability = TRUE  # grows a probability forest for the ROC curve
 )
 
-rf_predictions_prob <- predict(rf_model_prob, data = test_data)
-predicted_probs_team1_won <- rf_predictions_prob$predictions[, "1"]
-actual_outcomes <- test_data$team1_won
-rf_roc_curve <- pROC::roc(response = actual_outcomes, predictor = predicted_probs_team1_won)
-
-ggroc(rf_roc_curve,) +
-	annotate("text", x = 0.75, y = 0.05,
-			 label = paste("AUC =", format(auc(rf_roc_curve), digits = 3)),
-			 hjust = 0, vjust = 0, size = 4) +
-	theme_minimal()
+roc_rf(rf_model_prob, test_data)
 ```
 
 This is the highest accuracy so far, and the most balanced model yet. Also

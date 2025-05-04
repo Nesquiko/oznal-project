@@ -39,7 +39,7 @@ we trained an AdaBoost model to improve the accuracy with boosting.
 | Random Forest | 0.6806   | 0.6890      | 0.6712      | 0.6801            | 0.744  |
 | AdaBoost.M1   | 0.6812   | 0.7245      | 0.6327      | 0.6786            | 0.747  |
 
-All models plateaued at around 67%-68%, and this was the second sign of SISO.
+All models plateaued at around 67%-68%, and this was another sign of SISO.
 While the AdaBoost model had a bit higher overall accuracy and AUC, the random forest
 was much more balanced, and speed of training was orders of magnitude different.
 

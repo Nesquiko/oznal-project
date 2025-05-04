@@ -192,6 +192,12 @@ presentaion_ui <- tabPanel(
 						tags$li("Most normal"),
 						tags$li("Separation for both outcomes of a game"),
 					),
+					tags$h4("Other", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Small ranges"),
+						tags$li("No separations per game outcome"),
+						tags$li(tags$b("SISO sign #1")),
+					),
 				),
 				column(5, plotOutput("diff_distribution"), plotOutput("killdiff_dist")),
 			)
@@ -229,7 +235,8 @@ presentaion_ui <- tabPanel(
 					),
 					tags$h4("Analysis", style = "margin-top: 20px; color: var(--lol-gold);"),
 					tags$ul(
-						tags$li("Achieving some", tags$i("first event"), "team has above 50% of winning"),
+						tags$li("Achieving some", tags$i("first event"), "team has only around 60% of winning"),
+						tags$li(tags$b("SISO sign #2")),
 						tags$li(tags$i("first_tower"), "has the highest chance, but doesn't happen much"),
 						tags$li(tags$i("first_blood"), "is the 2nd most predictive"),
 						tags$li(tags$i("first_dragon"), "tied with", tags$i("first_herald")),
@@ -311,10 +318,67 @@ presentaion_ui <- tabPanel(
 						tags$li(tags$b("Accuracy:"), "66.9%"),
 						tags$li(tags$b("Sensitivity:"), "75%"),
 						tags$li(tags$b("Specificity:"), "57.7%"),
+						tags$li(tags$b("AUC:"), "0.71"),
 					),
 					plotOutput("decision_tree_roc")
 				),
 				column(6, plotOutput("decision_tree_plot", height = "600px")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Random forest tree", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("More balanced predictions"),
+						tags$li("Sligthly better accuracy"),
+					),
+					tags$h4("Performance on test set", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(tags$b("Accuracy:"), "68%"),
+						tags$li(tags$b("Sensitivity:"), "68.9%"),
+						tags$li(tags$b("Specificity:"), "67.12%"),
+						tags$li(tags$b("AUC:"), "0.745"),
+					),
+				),
+				column(6, plotOutput("rf_roc", width = "500px", height = "500px")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("AdaBoost", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Uses boosting"),
+						tags$li("Sligthly better accuracy"),
+						tags$li("Lost balance"),
+					),
+					tags$h4("Performance on test set", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(tags$b("Accuracy:"), "68.1%"),
+						tags$li(tags$b("Sensitivity:"), "72.45%"),
+						tags$li(tags$b("Specificity:"), "63.27%"),
+						tags$li(tags$b("AUC:"), "0.748"),
+					),
+				),
+				column(6, plotOutput("ada_roc", width = "500px", height = "500px")),
+			)
+		),
+
+		div(style = slideStyle,
+			fluidRow(
+				column(10, offset = 1,
+					tags$h3("Model Comparison", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$li("All models plateaued at around 67%-68%"),
+					tags$li(tags$b("SISO sign #3")),
+					tags$li("Random forest most reliable"),
+					tableOutput("model_comparison_table"),
+					tags$h4(tags$b("SISO"), style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$li("Most important LoL game metrics (gold, minion kills, experience) aren't in our dataset"),
+					tags$li("Early game isn't the whole game"),
+				),
 			)
 		),
 	),
