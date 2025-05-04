@@ -13,6 +13,10 @@ Teams compete to destroy the enemy's base structure, the Nexus.
 Our project goal is to predict the winning team based on events occurring within
 the first `N` minutes of professional matches.
 
+## Code
+
+All code and data can be accessed through [our github repository](https://github.com/Nesquiko/oznal-project).
+
 ## Dataset
 
 The dataset consists of three CSV files: `game_metadata.csv`, `game_players_stats.csv`,
