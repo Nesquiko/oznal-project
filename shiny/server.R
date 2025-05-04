@@ -5,7 +5,12 @@ library(patchwork)
 library(dplyr)
 library(magrittr)
 library(scales)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(yardstick)
 source("../dataset.R")
+source("../model_comparison.R")
 
 predict_winner <- function(minute, t1_kills, t2_kills, first_blood, first_tower, 
                            t1_towers, t2_towers) {
@@ -19,14 +24,40 @@ N <- 12 * 60
 
 server <- function(input, output, session) {
 
-  dataset <- reactive({
-	metadata <- read_csv("../data/game_metadata.csv", show_col_types = F)
-	player_stats <- read_csv("../data/game_players_stats.csv", show_col_types = F)
-	events <- read_csv("../data/game_events.csv", show_col_types = F)
-	champs <- read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
-		rename(name = `...1`) 
-	dataset <- early_game_dataset(player_stats, metadata, events, champs, N)
-  })
+	dataset <- reactive({
+		metadata <- read_csv("../data/game_metadata.csv", show_col_types = F)
+		player_stats <- read_csv("../data/game_players_stats.csv", show_col_types = F)
+		events <- read_csv("../data/game_events.csv", show_col_types = F)
+		champs <- read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
+			rename(name = `...1`) 
+		early_game_dataset(player_stats, metadata, events, champs, N)
+	})
+
+	train_test_split <- reactive({
+		req(dataset())
+	 	set.seed(42069)
+	 	train_indices <- createDataPartition(dataset()$team1_won, p = 0.75, list = FALSE, times = 1)
+	 	train_data <- dataset()[train_indices, ] %>% mutate(team1_won = factor(team1_won))
+	 	test_data <- dataset()[-train_indices, ] %>% mutate(team1_won = factor(team1_won))
+		
+		return (list(train_data = train_data, test_data = test_data))
+	})
+
+	 decition_tree_model <- reactive({
+		req(train_test_split())
+
+		train_data <- train_test_split()$train_data
+
+		formula <- team1_won ~ kill_diff + dragon_diff + first_herald
+		tree_model <- rpart(
+			formula = formula,     
+			data = train_data,     
+			method = "class",       
+			cp = 0.001,             
+		)
+
+		list(model = tree_model)
+	 })
 
 
   output$summary <- renderPrint({
@@ -322,6 +353,17 @@ server <- function(input, output, session) {
 					theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
 			}) %>%
 			wrap_plots(ncol = 1)
+	})
+
+	output$decision_tree_plot <- renderPlot({
+		tree_model <- decition_tree_model()$model;
+		plot_decision_tree(tree_model);
+	})
+
+	output$decision_tree_roc <- renderPlot({
+		tree_model <- decition_tree_model()$model;
+		test_data <- train_test_split()$test_data;
+		roc(tree_model, test_data);
 	})
 }
 

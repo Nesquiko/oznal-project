@@ -280,14 +280,6 @@ presentaion_ui <- tabPanel(
 						tags$li(tags$i("tower_diff & first_tower"), "- didn't happen in majority of games"),
 						tags$li(tags$b(tags$i("No significant boost when first achieved"))),
 					),
-				),
-				column(6, plotOutput("diff_first_rel_winrate", height = "1300px")),
-			)
-		),
-
-		div(style = slideStyle,
-			fluidRow(
-				column(4, offset = 1,
 					tags$h3("Predictors selection", style = "margin-top: 20px; color: var(--lol-gold);"),
 					tags$ul(
 						tags$li(
@@ -300,9 +292,31 @@ presentaion_ui <- tabPanel(
 						tags$li(tags$i("dragon_diff"), "above average win rate if leading"),
 					),
 				),
+				column(6, plotOutput("diff_first_rel_winrate", height = "1300px")),
 			)
 		),
 
+		div(style = slideStyle,
+			fluidRow(
+				column(4, offset = 1,
+					tags$h3("Decision tree", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li("Simple"),
+						tags$li("Can handle multiple data types"),
+						tags$li("Handles non linear relationships"),
+					),
+
+					tags$h4("Performance on test set", style = "margin-top: 20px; color: var(--lol-gold);"),
+					tags$ul(
+						tags$li(tags$b("Accuracy:"), "66.9%"),
+						tags$li(tags$b("Sensitivity:"), "75%"),
+						tags$li(tags$b("Specificity:"), "57.7%"),
+					),
+					plotOutput("decision_tree_roc")
+				),
+				column(6, plotOutput("decision_tree_plot", height = "600px")),
+			)
+		),
 	),
 )
 
