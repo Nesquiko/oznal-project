@@ -13,6 +13,7 @@ library(yardstick)
 library(ranger)
 library(adabag)
 library(purrr)
+library(tidyr)
 source("../dataset.R")
 source("../model_comparison.R")
 
@@ -48,7 +49,14 @@ server <- function(input, output, session) {
       ) %>%
         rename(name = `...1`)
     )
-    early_game_dataset(player_stats, metadata, events, champs, N)
+    early_game_dataset(
+      player_stats,
+      metadata,
+      events,
+      champs,
+      N,
+      cache_dir = "../data/",
+    )
   })
 
   train_test_split <- reactive({
@@ -173,16 +181,105 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$predict_button, {
-    pred <- predict_winner(
-      minute = input$minute,
-      t1_kills = input$t1_kills,
-      t2_kills = input$t2_kills,
-      first_blood = input$firstKill,
-      first_tower = input$firstTower,
-      t1_towers = input$t1_towers,
-      t2_towers = input$t2_towers
+    metadata <- read_csv("../data/game_metadata.csv", show_col_types = FALSE)
+    player_stats <- read_csv(
+      "../data/game_players_stats.csv",
+      show_col_types = FALSE
     )
-    prediction_result(pred)
+    events <- read_csv("../data/game_events.csv", show_col_types = FALSE)
+    champs <- suppressMessages(
+      read_csv(
+        "../data/260225_LoL_champion_data.csv",
+        show_col_types = FALSE
+      ) %>%
+        rename(name = `...1`)
+    )
+
+    user_dataset <- early_game_dataset(
+      player_stats,
+      metadata,
+      events,
+      champs,
+      input$minute * 60,
+      cache_dir = "../data/"
+    )
+    train_indices <- createDataPartition(
+      user_dataset$team1_won,
+      p = 0.75,
+      list = FALSE,
+      times = 1
+    )
+    train_data <- dataset()[train_indices, ] %>%
+      mutate(team1_won = factor(team1_won))
+    test_data <- dataset()[-train_indices, ] %>%
+      mutate(team1_won = factor(team1_won))
+
+    formula <- team1_won ~
+      kill_diff +
+        dragon_diff +
+        rift_herald_diff +
+        tower_diff +
+        first_blood +
+        first_dragon +
+        first_herald +
+        first_tower
+    rf <- ranger(formula = formula, data = train_data)
+
+    user_t1_kills <- input$t1_kills %||% 0
+    user_t2_kills <- input$t2_kills %||% 0
+    user_t1_towers <- input$t1_towers %||% 0
+    user_t2_towers <- input$t2_towers %||% 0
+
+    user_kill_diff <- user_t1_kills - user_t2_kills
+    user_tower_diff <- user_t1_towers - user_t2_towers
+
+    map_first_event_input <- function(ui_value) {
+      case_when(
+        ui_value == "Team 1" ~ "team1",
+        ui_value == "Team 2" ~ "team2",
+        ui_value == "None" ~ "none",
+        TRUE ~ "none"
+      )
+    }
+    user_first_blood_mapped <- map_first_event_input(input$firstKill)
+    user_first_tower_mapped <- map_first_event_input(input$firstTower)
+
+    default_dragon_diff <- 0
+    default_rift_herald_diff <- 0
+    default_first_dragon <- "none"
+    default_first_herald <- "none"
+
+    new_data_for_prediction <- tibble(
+      kill_diff = user_kill_diff,
+      dragon_diff = default_dragon_diff,
+      rift_herald_diff = default_rift_herald_diff,
+      tower_diff = user_tower_diff,
+      first_blood = factor(
+        user_first_blood_mapped,
+        levels = levels(train_data$first_blood)
+      ),
+      first_dragon = factor(
+        default_first_dragon,
+        levels = levels(train_data$first_dragon)
+      ),
+      first_herald = factor(
+        default_first_herald,
+        levels = levels(train_data$first_herald)
+      ),
+      first_tower = factor(
+        user_first_tower_mapped,
+        levels = levels(train_data$first_tower)
+      )
+    )
+
+    prediction_output <- predict(rf, data = new_data_for_prediction)
+    predicted_class <- prediction_output$predictions
+    predicted_winner_string <- case_when(
+      predicted_class == "1" ~ "Team 1",
+      predicted_class == "0" ~ "Team 2",
+      TRUE ~ "Prediction Error"
+    )
+    prediction_result(predicted_winner_string)
     view_state("output")
   })
 

@@ -709,9 +709,9 @@ ui <- tags$div(
   navbarPage(
     title = "Game Conclusion Predictor",
     id = "navbar",
+    predictor_ui,
     presentaion_ui,
     data_upload_ui,
-    predictor_ui,
     header = tags$style(HTML(
       "
       body {
