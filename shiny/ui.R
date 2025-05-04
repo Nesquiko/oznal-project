@@ -294,7 +294,7 @@ data_upload_ui <- tabPanel(
           "mtry",
           label = NULL,
           min = 1,
-          max = 10,
+          max = 8,
           value = 5,
           step = 1,
           width = "100%"
@@ -709,8 +709,8 @@ ui <- tags$div(
   navbarPage(
     title = "Game Conclusion Predictor",
     id = "navbar",
-    data_upload_ui,
     presentaion_ui,
+    data_upload_ui,
     predictor_ui,
     header = tags$style(HTML(
       "

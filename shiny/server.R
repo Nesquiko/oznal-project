@@ -1,5 +1,6 @@
 library(shiny)
 library(shinyjs)
+library(readr)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
@@ -11,6 +12,7 @@ library(rpart.plot)
 library(yardstick)
 library(ranger)
 library(adabag)
+library(purrr)
 source("../dataset.R")
 source("../model_comparison.R")
 
@@ -23,7 +25,7 @@ predict_winner <- function(
   t1_towers,
   t2_towers
 ) {
-  return("Team 1")
+  "Team 1"
 }
 
 
@@ -33,14 +35,17 @@ N <- 12 * 60
 
 server <- function(input, output, session) {
   dataset <- reactive({
-    metadata <- read_csv("../data/game_metadata.csv", show_col_types = F)
+    metadata <- read_csv("../data/game_metadata.csv", show_col_types = FALSE)
     player_stats <- read_csv(
       "../data/game_players_stats.csv",
-      show_col_types = F
+      show_col_types = FALSE
     )
-    events <- read_csv("../data/game_events.csv", show_col_types = F)
+    events <- read_csv("../data/game_events.csv", show_col_types = FALSE)
     champs <- suppressMessages(
-      read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
+      read_csv(
+        "../data/260225_LoL_champion_data.csv",
+        show_col_types = FALSE
+      ) %>%
         rename(name = `...1`)
     )
     early_game_dataset(player_stats, metadata, events, champs, N)
@@ -132,7 +137,7 @@ server <- function(input, output, session) {
 
   output$summary <- renderPrint({
     req(input$file)
-    summary(read.csv(input$file$datapath))
+    summary(read_csv(input$file$datapath, show_col_types = FALSE))
   })
 
   prediction_result <- reactiveVal(NULL)
@@ -240,24 +245,95 @@ server <- function(input, output, session) {
         ),
         div(input$min_node_size, style = "color: cornsilk;"),
       ),
-      plotOutput("decision_tree_plot"),
+
+      tableOutput("user_rf_model_comp"),
+      plotOutput("user_rf_model_curve"),
       br(),
       actionButton("reset_train_button", "Reset")
     )
   })
 
   observeEvent(input$train_button, {
-    # Train model here and put it into train_result
-    train_result(list(
-      train_test_split = input$train_test_split,
-      num_trees = input$num_trees,
-      mtry = input$mtry,
-      min_node_size = input$min_node_size
-    ))
+    input_dataset <- read_csv(input$file$datapath, show_col_types = FALSE)
+    train_indices <- createDataPartition(
+      input_dataset$team1_won,
+      p = 0.75,
+      list = FALSE,
+      times = 1
+    )
+    train_data <- dataset()[train_indices, ] %>%
+      mutate(team1_won = factor(team1_won))
+    test_data <- dataset()[-train_indices, ] %>%
+      mutate(team1_won = factor(team1_won))
+
+    formula <- team1_won ~
+      kill_diff +
+        dragon_diff +
+        rift_herald_diff +
+        tower_diff +
+        first_blood +
+        first_dragon +
+        first_herald +
+        first_tower
+
+    num_trees <- input$num_trees
+    mtry <- input$mtry
+    min_node_size <- input$min_node_size
+
+    rf <- ranger(
+      formula = formula,
+      data = train_data,
+      num.trees = num_trees,
+      mtry = mtry,
+      min.node.size = min_node_size,
+    )
+
+    predictions <- predict(rf, data = train_data)
+    train_conf_matrix <- confusionMatrix(
+      data = predictions$predictions,
+      reference = train_data$team1_won,
+      positive = "1"
+    )
+    predictions <- predict(rf, data = test_data)
+    test_conf_matrix <- confusionMatrix(
+      data = predictions$predictions,
+      reference = test_data$team1_won,
+      positive = "1"
+    )
+    conf_mat_comp <- compare_conf_matrices(
+      train_conf_matrix,
+      test_conf_matrix,
+      c("training", "testing")
+    )
+
+    rf_with_prob <- ranger(
+      formula = formula,
+      data = train_data,
+      num.trees = num_trees,
+      mtry = mtry,
+      min.node.size = min_node_size,
+      probability = TRUE,
+    )
+
+    result <- list(
+      conf_mat_comp = conf_mat_comp,
+      roc_curve = roc_rf(rf_with_prob, test_data)
+    )
+    train_result(result)
   })
 
   observeEvent(input$reset_train_button, {
     train_result(NULL)
+  })
+
+  output$user_rf_model_curve <- renderPlot({
+    req(train_result())
+    train_result()$roc_curve
+  })
+
+  output$user_rf_model_comp <- renderTable({
+    req(train_result())
+    train_result()$conf_mat_comp
   })
 
   output$plot <- renderPlot({

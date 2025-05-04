@@ -11,7 +11,8 @@ compare_conf_matrices <- function(conf1, conf2, names) {
   byClass1 <- conf1$byClass
   overall2 <- conf2$overall
   byClass2 <- conf2$byClass
-  comparison_df <- data.frame(
+
+  data.frame(
     Model = names,
     Accuracy = c(overall1['Accuracy'], overall2['Accuracy']),
     Sensitivity = c(byClass1['Sensitivity'], byClass2['Sensitivity']),
@@ -22,8 +23,7 @@ compare_conf_matrices <- function(conf1, conf2, names) {
     ),
     check.names = FALSE
   ) %>%
-    mutate(across(where(is.numeric), ~ percent(x = ., accuracy = 0.01))) %>%
-    print()
+    mutate(across(where(is.numeric), ~ percent(x = ., accuracy = 0.01)))
 }
 
 roc <- function(model, data) {
