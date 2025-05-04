@@ -1,5 +1,5 @@
 ---
-title: "EDA"
+title: "CASTVEN KILIAN CAPSTONE PROJECT"
 author: "Lukáš Častven, Michal Kilian"
 date: "`r Sys.Date()`"
 output: html_document
@@ -34,8 +34,7 @@ provides the data under the permissive MIT license.
 The dataset containing metadata about champions up to February 2025, can be
 found on Kaggle under name
 [25.S1.4 League of Legends Champion Data (2025)](https://www.kaggle.com/datasets/laurenainsleyhaines/25-s1-4-league-of-legends-champion-data-2025/data).
-The original dataset didn't include champion classifications like 'Fighter', 'Mage,
-and we think it might help.
+The original dataset didn't include champion classifications like 'Fighter', 'Mage', etc. and we think it might help.
 
 ### `game_metadata.csv`
 
@@ -140,7 +139,7 @@ color2 <- "#A0DDA1"
 We hypothesize that if a team has more advantages in early game
 (events that happen before `N`th minute), then they are more likely to win the
 whole game. We want to classify, based on early games state, if team 1 will
-win or loose.
+win or lose.
 
 ## Representing early game state
 
@@ -148,7 +147,7 @@ We will create features representing the relative advantage between the two team
 `N` minute. This involves calculating the difference in key objectives (kills,
 dragons, heralds, towers) and identifying which team secured the first
 significant event (first blood, first dragon, first herald) with timestamps of
-these events. Also We will calculate differences in champion types for each team.
+these events. Also we will calculate differences in champion types for each team.
 
 ### Steps
 
@@ -761,7 +760,7 @@ test_data <- dataset[-train_indices, ]
 
 ### Decision trees
 
-We first try all features that shows promise in EDA (`first_` and diffs).
+We first try all features that show promise in EDA (`first_` and diffs).
 
 ```{r}
 formula <- team1_won ~ kill_diff + dragon_diff + rift_herald_diff +
