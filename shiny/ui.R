@@ -111,12 +111,18 @@ data_upload_ui <- tabPanel(
   "Data Upload",
   fluidRow(
     column(8, offset = 2,
-           div(style = "background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 20px; border-radius: 15px; border: 1px solid var(--lol-gold); margin-bottom: 25px;",
-               fileInput("file", "Choose CSV File",
-                         multiple = FALSE,
-                         accept = c("text/csv",
-                                    "text/comma-separated-values,text/plain",
-                                    ".csv")),
+           div(style = "background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 20px 20px 0px 20px; border-radius: 15px; border: 1px solid var(--lol-gold); margin-bottom: 25px;",
+               tags$label("Choose a CSV file", `for` = "file", style = "color: var(--lol-gold); font-size: 1.2em; font-weight: bold; margin-bottom: 10px; display: block;"),
+               div(style = "width: 100%;",
+                   fileInput("file", label = NULL,
+                             multiple = FALSE,
+                             accept = c("text/csv",
+                                        "text/comma-separated-values,text/plain",
+                                        ".csv"),
+                             width = "100%",
+                             buttonLabel = "Browse...",
+                             placeholder = "No file selected")
+               ),
                verbatimTextOutput("summary")
            )
     )
@@ -124,20 +130,37 @@ data_upload_ui <- tabPanel(
   fluidRow(
     column(8, offset = 2,
            div(class="slider-container",
-               h4("Parameters", style="color: var(--lol-gold);"),
-               h5("Parameter 1", style="color: var(--lol-gold); text-align: left;"),
-               sliderInput("parameter1", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
-               h5("Parameter 2", style="color: var(--lol-gold); text-align: left;"),
-               sliderInput("parameter2", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
-               h5("Parameter 3", style="color: var(--lol-gold); text-align: left;"),
-               sliderInput("parameter3", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
+               h4("Train/Test split", style="color: var(--lol-gold); font-weight: bold;"),
+               div(style="display: flex; align-items: center; justify-content: space-between;; color: var(--lol-gold); text-align: left; width: 100%;",
+                   h5("Training data percentage", style="color: var(--lol-gold); text-align: left;"),
+                   h5("Testing data percentage", style="color: var(--lol-gold); text-align: right;"),
+               ),
+               sliderInput("train_test_split", label=NULL, min = 0, max = 100, value = 50, step = 1, width = "100%"),
+           )
+      )
+  ),
+  fluidRow(
+    column(8, offset = 2,
+           div(class="slider-container",
+               h4("Parameters", style="color: var(--lol-gold); font-weight: bold;"),
+               h5("Number of trees in the forest", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("num_trees", label=NULL, min = 100, max = 1000, value = 500, step = 1, width = "100%"),
+               h5("Number of variables randomly sampled at each split", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("mtry", label=NULL, min = 1, max = 10, value = 5, step = 1, width = "100%"),
+               h5("Minimum number of observations in a terminal node", style="color: var(--lol-gold); text-align: left;"),
+               sliderInput("min_node_size", label=NULL, min = 1, max = 10, value = 1, step = 1, width = "100%"),
            )
     )
   ),
   fluidRow(
     column(8, offset = 2, align = "center",
+           uiOutput("train_display_wrapper")
+    )
+  ),
+  fluidRow(
+    column(8, offset = 2, align = "center",
            div(style = "display: flex; align-items: center; justify-content: center; height: 100%; margin-top: 25px; margin-bottom: 25px;",
-               actionButton("train_button", "TRAIN")
+               actionButton("train_button", class="train_button", "TRAIN")
            )
     )
   )

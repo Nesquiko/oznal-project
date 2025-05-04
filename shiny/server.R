@@ -33,7 +33,7 @@ server <- function(input, output, session) {
 		champs <- suppressMessages(read_csv("../data/260225_LoL_champion_data.csv", show_col_types = F) %>%
 			rename(name = `...1`)) 
 		early_game_dataset(player_stats, metadata, events, champs, N)
-	})
+	});
 
 	train_test_split <- reactive({
 		req(dataset())
@@ -58,7 +58,7 @@ server <- function(input, output, session) {
 		)
 
 		list(model = tree_model)
-	 })
+	 });
 
 	rf_model <- reactive({
 		req(train_test_split())
@@ -101,7 +101,7 @@ server <- function(input, output, session) {
   output$summary <- renderPrint({
     req(input$file)
     summary(read.csv(input$file$datapath))
-  })
+  });
 
   prediction_result <- reactiveVal(NULL)
   view_state <- reactiveVal("input")
@@ -126,7 +126,7 @@ server <- function(input, output, session) {
       br(),
       actionButton("reset_button", "Reset")
     )
-  })
+  });
   
   observeEvent(input$predict_button, {
     pred <- predict_winner(
@@ -140,20 +140,72 @@ server <- function(input, output, session) {
     )
     prediction_result(pred)
     view_state("output")
-  })
-  
-  observeEvent(input$train_button, {
-    
-  })
+  });
   
   observeEvent(input$reset_button, {
     prediction_result(NULL)
     view_state("input")
+  });
+  
+  train_result <- reactiveVal(NULL)
+  
+  output$train_display_wrapper <- renderUI({
+    if (is.null(train_result())) {
+      return(NULL)
+    }
+    train_result <- train_result()
+    
+    tags$div(
+      style = "text-align: center; background-color: rgba(0, 50, 78, 0.9); color: var(--lol-gold); padding: 20px 30px 10px 30px; border-radius: var(--border-radius-main); margin-top: 15px; margin-bottom: 15px; border: 1px solid var(--lol-gold); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);",
+      h4("Training summary", style = "font-weight: bold; margin-bottom: 25px;"),
+      div(
+        style = "width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;",
+        div("Training data percentage:", style = "width: 80%; text-align: left;"),
+        div(paste(input$train_test_split, "%"), style = "color: cornsilk;"),
+      ),
+      div(
+        style = "width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;",
+        div("Testing data percentage:", style = "width: 80%; text-align: left;"),
+        div(paste(100 - input$train_test_split, "%"), style = "color: cornsilk;"),
+      ),
+      div(
+        style = "width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;",
+        div("Number of trees in the forest:", style = "width: 80%; text-align: left;"),
+        div(input$num_trees, style = "color: cornsilk;"),
+      ),
+      div(
+        style = "width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;",
+        div("Number of variables randomly sampled at each split:", style = "width: 80%; text-align: left;"),
+        div(input$mtry, style = "color: cornsilk;"),
+      ),
+      div(
+        style = "width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;",
+        div("Minimum number of observations in a terminal node:", style = "width: 80%; text-align: left;"),
+        div(input$min_node_size, style = "color: cornsilk;"),
+      ),
+      plotOutput("decision_tree_plot"),
+      br(),
+      actionButton("reset_train_button", "Reset")
+    )
+  })
+  
+  observeEvent(input$train_button, {
+    # Train model here and put it into train_result
+    train_result(list(
+      train_test_split = input$train_test_split,
+      num_trees = input$num_trees,
+      mtry = input$mtry,
+      min_node_size = input$min_node_size
+    ))
+  })
+  
+  observeEvent(input$reset_train_button, {
+    train_result(NULL)
   })
   
   output$plot <- renderPlot({
     hist(rnorm(100))
-  })
+  });
 
   output$diff_distribution <- renderPlot({
 	dataset() %>%
