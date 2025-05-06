@@ -1,6 +1,9 @@
 library(shiny)
 library(shinyjs)
 
+color1 <- "plum"
+color2 <- "#A0DDA1"
+
 predictor_ui <- tabPanel(
   "Predictor",
   fluidPage(
