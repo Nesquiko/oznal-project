@@ -691,6 +691,7 @@ server <- function(input, output, session) {
           diff_col_sym <- sym(.x)
 
           dataset() %>%
+			filter(!!first_col_sym != "none") %>%
             mutate(
               diff_sign = case_when(
                 !!diff_col_sym > 0 ~ "team1 lead",
